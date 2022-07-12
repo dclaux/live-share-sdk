@@ -5,7 +5,6 @@ import { Stroke } from '@ms/ink/model/Stroke';
 import { StrokeCollection } from '@ms/ink/model/StrokeCollection';
 import { UniqueId } from '@ms/ink/model/UniqueId';
 import { MapZOrderCollection } from './map-zorder-collection';
-import { StrokeWithBoundsStreamSink } from './stroke-with-bounds-stream-sink';
 
 interface StrokeItem {
     readonly stroke: Stroke;
@@ -40,11 +39,5 @@ export class MapStrokeCollection implements StrokeCollection {
                 sink.add(stroke);
             }
         }
-    }
-
-    public streamWithBounds(sink: StrokeWithBoundsStreamSink): void {
-        this._map.forEach((stroke: StrokeItem) => {
-            sink.add(stroke.stroke, stroke.bounds);
-        });
     }
 }

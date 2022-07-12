@@ -6,18 +6,13 @@ import { Stroke } from '@ms/ink/model/Stroke';
 import { StrokeCollection } from '@ms/ink/model/StrokeCollection';
 import { UniqueId } from '@ms/ink/model/UniqueId';
 import { UniqueIdGenerator } from '@ms/ink/model/UniqueIdGenerator';
-import { deserializeStrokeCollectionFromJSON } from '@ms/ink/serializer/json/deserializeStrokeCollectionFromJSON';
-import { serializeStrokeCollectionToJSON } from '@ms/ink/serializer/json/serializeStrokeCollectionToJSON';
 import { MapStrokeCollection } from './map-stroke-collection';
 import { MapZOrderCollection } from './map-zorder-collection';
-import { StrokeWithBoundsStreamSink } from './stroke-with-bounds-stream-sink';
 
 export const ClearEvent: symbol = Symbol();
 export const StrokeAddedEvent: symbol = Symbol();
 export const StrokeDeletedEvent: symbol = Symbol();
 export const RerenderEvent: symbol = Symbol();
-
-const localStorageKey: string = 'ink';
 
 export class StrokeCollectionStore extends EventEmitter implements StrokeStreamSink, StrokeCollection {
     public static INSTANCE: StrokeCollectionStore = new StrokeCollectionStore();
@@ -26,7 +21,6 @@ export class StrokeCollectionStore extends EventEmitter implements StrokeStreamS
     private readonly collection: MapStrokeCollection = new MapStrokeCollection();
 
     private _strokesVisible: boolean = true;
-    private _loadedFromLocalStorage: boolean = false;
 
     public sharedIdGenerator: UniqueIdGenerator = new IncrementalNumberUniqueIdGenerator();
 
@@ -91,42 +85,5 @@ export class StrokeCollectionStore extends EventEmitter implements StrokeStreamS
                 }
             }
         });
-    }
-
-    public streamWithBounds(sink: StrokeWithBoundsStreamSink): void {
-        if (!this._strokesVisible) {
-            return;
-        }
-
-        this.collection.streamWithBounds(sink);
-    }
-
-    public saveToLocalStorage(): void {
-        window.localStorage.setItem(localStorageKey, serializeStrokeCollectionToJSON(this.collection));
-    }
-
-    public loadFromLocalStorage(): void {
-        if (this._loadedFromLocalStorage) {
-            return;
-        }
-
-        const inkJson: string | null = window.localStorage.getItem(localStorageKey);
-
-        if (inkJson !== null) {
-            deserializeStrokeCollectionFromJSON(inkJson).stream(this);
-        }
-
-        let maxId: number = 0;
-        this.collection.stream({
-            add: (stroke: Stroke): void => {
-                const numStrokeId: number = stroke.id as number;
-                if (numStrokeId > maxId) {
-                    maxId = numStrokeId;
-                }
-            }
-        });
-
-        (this.sharedIdGenerator as IncrementalNumberUniqueIdGenerator).setBaseId(maxId + 1);
-        this._loadedFromLocalStorage = true;
     }
 }
