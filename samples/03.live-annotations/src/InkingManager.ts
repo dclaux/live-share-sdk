@@ -73,35 +73,7 @@ export class InkingManager {
 
     private _wetInkRenderFPS: number[] = [];
     private _wetInkRenderFPSReferenceTimestamp: number = 0;
-
-    /*
-    private _inputToStroke = new PointerEventToRulerStrokePathTransform(
-        new PointerEventToSmoothedStrokePathTransform(0.5),
-        new RulerStrokePathSink(
-            () => {
-                return InkRuler.INSTANCE.getRulerModel();
-            },
-            () => {
-                return ActiveDrawingAttributes.INSTANCE.current;
-            }
-        )
-    );
-    */
-
     private _inputToStroke = new PointerEventToSmoothedStrokePathTransform(0.5);
-    /*
-        new PointerEventToSmoothedStrokePathTransform(0.5),
-        new RulerStrokePathSink(
-            () => {
-                return InkRuler.INSTANCE.getRulerModel();
-            },
-            () => {
-                return ActiveDrawingAttributes.INSTANCE.current;
-            }
-        )
-    );
-    */
-
     private _renderWet!: () => void;
 
     private createCanvasPoolHost(host: HTMLElement) {
@@ -123,7 +95,6 @@ export class InkingManager {
 
         this._dryCanvas = new InkingCanvas(inkingCanvasContainer, strokeRenderMode);
         this._wetCanvas = new InkingCanvas(inkingCanvasContainer, strokeRenderMode);
-
         this._renderLoop = new StrokeRenderLoop(this.render);
 
         WetStrokeCollectionStore.INSTANCE.overrideCollector(EventingStrokeCollector.INSTANCE);

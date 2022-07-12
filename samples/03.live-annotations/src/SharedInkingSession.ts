@@ -67,6 +67,9 @@ export class SharedInkingSession extends DataObject {
             throw new Error("Unable to get the dryInk SharedMap handle.");
         }
 
+        // TODO: Temporary erase all the ink every time a client starts
+        this._dryInkMap.clear();
+
         this.setupDryInkProcessing();
         this.setupWetInkProcessing();
         this.setupFluidSignalsProcessing();
