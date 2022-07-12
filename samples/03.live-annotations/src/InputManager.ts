@@ -13,7 +13,7 @@ import { TouchToPointerEventTransform } from '@ms/ink/input/touch/TouchToPointer
 import { ActivityLogger } from '@ms/ink/telemetry/ActivityLogger';
 import { initPenUsageLogging } from '@ms/ink/telemetry/initPenUsageLogging';
 import { WetInkLaserMetric } from '@ms/ink/telemetry/WetInkLaserMetric';
-import { KeyStatusExtractor } from './key-status-extractor';
+import { KeyStatusExtractor } from './KeyStatusExtractor';
 
 class TestActivityLogger implements ActivityLogger {
     public logActivity(

@@ -6,8 +6,8 @@ import { Stroke } from '@ms/ink/model/Stroke';
 import { StrokeCollection } from '@ms/ink/model/StrokeCollection';
 import { UniqueId } from '@ms/ink/model/UniqueId';
 import { UniqueIdGenerator } from '@ms/ink/model/UniqueIdGenerator';
-import { MapStrokeCollection } from './map-stroke-collection';
-import { MapZOrderCollection } from './map-zorder-collection';
+import { MapStrokeCollection } from './MapStrokeCollection';
+import { MapZOrderCollection } from './MapZOrderCollection';
 
 export const ClearEvent: symbol = Symbol();
 export const StrokeAddedEvent: symbol = Symbol();

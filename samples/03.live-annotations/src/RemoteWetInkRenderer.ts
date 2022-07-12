@@ -4,8 +4,8 @@ import { getScaledCanvasRenderingContext2D } from '@ms/ink/dom/getRenderingConte
 import { PointArrayStroke, streamPointArrayStrokeFrom } from '@ms/ink/model/builder/PointArrayStroke';
 import { CanvasStrokeRenderer } from '@ms/ink/renderer/CanvasStrokeRenderer';
 import { NoopEffectResolver } from '@ms/ink/renderer/EffectResolver';
-import { InkingManager } from './inking-manager';
-import { RemoteWetInkStore, StrokeAddedEvent, StrokeRemovedEvent } from './remote-wet-ink-store';
+import { InkingManager } from './InkingManager';
+import { RemoteWetInkStore, StrokeAddedEvent, StrokeRemovedEvent } from './RemoteWetInkStore';
 
 type StrokeToRender = {
     stroke: PointArrayStroke;

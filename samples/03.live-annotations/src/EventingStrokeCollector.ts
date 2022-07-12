@@ -6,8 +6,8 @@ import { Point } from '@ms/ink/model/Point';
 import { StrokeBuilderSink } from '@ms/ink/model/sink/StrokeBuilderSink';
 import { StrokeStreamSink } from '@ms/ink/model/sink/StrokeStreamSink';
 import { UniqueIdGenerator } from '@ms/ink/model/UniqueIdGenerator';
-import { StrokeBeginEvent, StrokeEndEvent, WetStrokeCollectionStore } from './wet-stroke-collection-store';
-import { UuidUniqueIdGenerator } from './uuid-unique-id-generator';
+import { StrokeBeginEvent, StrokeEndEvent, WetStrokeCollectionStore } from './WetStrokeCollectionStore';
+import { UuidUniqueIdGenerator } from './UuidUniqueIdGenerator';
 
 export const BeginStrokeEvent: symbol = Symbol();
 export const EndStrokeEvent: symbol = Symbol();

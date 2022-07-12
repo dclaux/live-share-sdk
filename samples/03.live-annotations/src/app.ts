@@ -7,9 +7,9 @@ import { TeamsFluidClient } from "@microsoft/live-share";
 import { LOCAL_MODE_TENANT_ID } from "@fluidframework/azure-client";
 import { InsecureTokenProvider } from "@fluidframework/test-client-utils";
 
-import { SharedInkingSession } from "./shared-inking-session";
+import { SharedInkingSession } from "./SharedInkingSession";
 
-import { InkingManager } from "./inking-manager";
+import { InkingManager } from "./InkingManager";
 
 const containerSchema = {
     initialObjects: {
@@ -18,27 +18,23 @@ const containerSchema = {
 };
 
 async function start() {
-    const root = document.getElementById("root");
-
-    if (root) {
-        const client = new TeamsFluidClient({
-            connection: {
-                tenantId: LOCAL_MODE_TENANT_ID,
-                tokenProvider: new InsecureTokenProvider("", { id: "123" }),
-                orderer: "http://localhost:7070",
-                storage: "http://localhost:7070",
-            }
-        });
-
-        client.joinContainer(containerSchema);
-
-        const inkingHost = document.getElementById("inkingHost");
-
-        if (inkingHost) {
-            const inkingManager = new InkingManager(inkingHost);
-
-            inkingManager.activate();
+    const client = new TeamsFluidClient({
+        connection: {
+            tenantId: LOCAL_MODE_TENANT_ID,
+            tokenProvider: new InsecureTokenProvider("", { id: "123" }),
+            orderer: "http://localhost:7070",
+            storage: "http://localhost:7070",
         }
+    });
+
+    client.joinContainer(containerSchema);
+
+    const inkingHost = document.getElementById("inkingHost");
+
+    if (inkingHost) {
+        const inkingManager = new InkingManager(inkingHost);
+
+        inkingManager.activate();
     }
 }
 

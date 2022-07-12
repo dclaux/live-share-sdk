@@ -1,6 +1,6 @@
 import { Transform } from '@ms/ink/concept/Transform';
 import { PointerEventSink } from '@ms/ink/input/PointerEventSink';
-import { WetStrokeCollectionStore } from './wet-stroke-collection-store';
+import { WetStrokeCollectionStore } from './WetStrokeCollectionStore';
 
 export class KeyStatusExtractor implements Transform<PointerEventSink> {
     public output!: PointerEventSink;

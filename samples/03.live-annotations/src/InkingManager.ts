@@ -1,25 +1,23 @@
 import { Stroke } from '@ms/ink/model/Stroke';
 import { StrokeRenderLoop } from '@ms/ink/renderer/StrokeRenderLoop';
 import { StrokeRenderMode } from '@ms/ink/renderer/StrokeRenderMode';
-import { ActiveDrawingAttributes } from './active-drawing-attributes';
+import { ActiveDrawingAttributes } from './ActiveDrawingAttributes';
 import {
     ClearEvent,
     StrokeAddedEvent,
     StrokeCollectionStore,
     StrokeDeletedEvent,
     RerenderEvent
-} from './stroke-collection-store';
-import { StrokeBeginEvent, StrokeEndEvent, WetStrokeCollectionStore } from './wet-stroke-collection-store';
+} from './StrokeCollectionStore';
+import { StrokeBeginEvent, StrokeEndEvent, WetStrokeCollectionStore } from './WetStrokeCollectionStore';
 import { clear2DCanvas } from '@ms/ink/dom/clearCanvas';
 import { getScaledCanvasRenderingContext2D } from '@ms/ink/dom/getRenderingContext';
 import { CanvasStrokeRenderer } from '@ms/ink/renderer/CanvasStrokeRenderer';
 import { DefaultColorResolver } from '@ms/ink/renderer/ColorResolver';
 import { NoopEffectResolver } from '@ms/ink/renderer/EffectResolver';
-import { InputManager } from './input-manager';
-import { PointerEventToRulerStrokePathTransform, RulerStrokePathSink } from '@ms/ink/input-to-model/RulerStrokePathSink';
+import { InputManager } from './InputManager';
 import { PointerEventToSmoothedStrokePathTransform } from '@ms/ink/input-to-model/PointerEventToSmoothedStrokePathTransform';
-import { InkRuler } from './ink-ruler';
-import { EventingStrokeCollector } from './eventing-stroke-collector';
+import { EventingStrokeCollector } from './EventingStrokeCollector';
 
 class InkingCanvas {
     public readonly canvas: HTMLCanvasElement;
@@ -76,6 +74,7 @@ export class InkingManager {
     private _wetInkRenderFPS: number[] = [];
     private _wetInkRenderFPSReferenceTimestamp: number = 0;
 
+    /*
     private _inputToStroke = new PointerEventToRulerStrokePathTransform(
         new PointerEventToSmoothedStrokePathTransform(0.5),
         new RulerStrokePathSink(
@@ -87,6 +86,21 @@ export class InkingManager {
             }
         )
     );
+    */
+
+    private _inputToStroke = new PointerEventToSmoothedStrokePathTransform(0.5);
+    /*
+        new PointerEventToSmoothedStrokePathTransform(0.5),
+        new RulerStrokePathSink(
+            () => {
+                return InkRuler.INSTANCE.getRulerModel();
+            },
+            () => {
+                return ActiveDrawingAttributes.INSTANCE.current;
+            }
+        )
+    );
+    */
 
     private _renderWet!: () => void;
 

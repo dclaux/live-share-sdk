@@ -5,18 +5,18 @@ import { ISequencedDocumentMessage } from '@fluidframework/protocol-definitions'
 import { IInboundSignalMessage } from '@fluidframework/runtime-definitions';
 import { Stroke } from '@ms/ink/model/Stroke';
 import { UniqueId } from '@ms/ink/model/UniqueId';
-import { RemoteWetInkStore } from "./remote-wet-ink-store";
-import { RemoteWetInkRenderer } from "./remote-wet-ink-renderer";
+import { RemoteWetInkStore } from "./RemoteWetInkStore";
+import { RemoteWetInkRenderer } from "./RemoteWetInkRenderer";
 import {
     BeginStrokeEvent,
     CurrentStrokeStreamedEvent,
     EndStrokeEvent,
     EventingStrokeCollector
-} from './eventing-stroke-collector';
+} from './EventingStrokeCollector';
 import { Point } from '@ms/ink/model/Point';
 import { DrawingAttributes } from '@ms/ink/model/DrawingAttributes';
 import { PointArrayStroke } from '@ms/ink/model/builder/PointArrayStroke';
-import { ClearEvent, StrokeAddedEvent, StrokeCollectionStore, StrokeDeletedEvent } from './stroke-collection-store';
+import { ClearEvent, StrokeAddedEvent, StrokeCollectionStore, StrokeDeletedEvent } from './StrokeCollectionStore';
 import { deserializeStrokeFromJSON } from '@ms/ink/serializer/json/deserializeStrokeFromJSON';
 import { serializeStrokeToJSON } from '@ms/ink/serializer/json/serializeStrokeToJSON';
 
@@ -101,7 +101,7 @@ export class SharedInkingSession extends DataObject {
             this._wetInkStrokeUpdate.delete(strokeId);
             return;
         }
-        
+
         this._wetInkStrokeUpdate.set(strokeId, Date.now());
 
         if (this._outdatedStrokeCheckTimer === 0) {

@@ -4,7 +4,7 @@ import { StrokeStreamSink } from '@ms/ink/model/sink/StrokeStreamSink';
 import { Stroke } from '@ms/ink/model/Stroke';
 import { StrokeCollection } from '@ms/ink/model/StrokeCollection';
 import { UniqueId } from '@ms/ink/model/UniqueId';
-import { MapZOrderCollection } from './map-zorder-collection';
+import { MapZOrderCollection } from './MapZOrderCollection';
 
 interface StrokeItem {
     readonly stroke: Stroke;

@@ -7,8 +7,8 @@ import { StrokeBuilderSink } from '@ms/ink/model/sink/StrokeBuilderSink';
 import { StrokePathSink } from '@ms/ink/model/sink/StrokePathSink';
 import { StrokeStreamSink } from '@ms/ink/model/sink/StrokeStreamSink';
 import { Stroke } from '@ms/ink/model/Stroke';
-import { ActiveDrawingAttributes } from './active-drawing-attributes';
-import { StrokeCollectionStore } from './stroke-collection-store';
+import { ActiveDrawingAttributes } from './ActiveDrawingAttributes';
+import { StrokeCollectionStore } from './StrokeCollectionStore';
 
 export const StrokeBeginEvent: symbol = Symbol();
 export const StrokeEndEvent: symbol = Symbol();
