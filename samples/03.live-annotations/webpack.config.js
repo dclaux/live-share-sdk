@@ -8,9 +8,10 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 module.exports = env => {
 	const htmlTemplate = "./src/index.html";
+
 	const plugins = env && env.clean
-		? [new CleanWebpackPlugin(), new HtmlWebpackPlugin({ template: htmlTemplate })]
-		: [new HtmlWebpackPlugin({ template: htmlTemplate })];
+		? [ new CleanWebpackPlugin(), new HtmlWebpackPlugin({ template: htmlTemplate }) ]
+		: [ new HtmlWebpackPlugin({ template: htmlTemplate }) ];
 
 	const mode = env && env.prod
 		? "production"

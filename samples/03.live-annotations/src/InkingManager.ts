@@ -80,13 +80,13 @@ export class InkingManager {
         let canvasPoolHost = document.getElementById(InkingManager.canvasPoolId);
 
         if (!canvasPoolHost) {
-           canvasPoolHost = document.createElement("div");
-           canvasPoolHost.id = InkingManager.canvasPoolId;
-           canvasPoolHost.style.position = "absolute";
-           canvasPoolHost.style.width = "100%";
-           canvasPoolHost.style.height = "100%";
+            canvasPoolHost = document.createElement("div");
+            canvasPoolHost.id = InkingManager.canvasPoolId;
+            canvasPoolHost.style.position = "absolute";
+            canvasPoolHost.style.width = "100%";
+            canvasPoolHost.style.height = "100%";
 
-           host.appendChild(canvasPoolHost);
+            host.appendChild(canvasPoolHost);
         }
     }
 
