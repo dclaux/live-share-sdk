@@ -34,11 +34,11 @@ interface WetInkStrokeStreamSignalData {
     newPoints: Point[];
 }
 
-export class SharedInkingSession extends DataObject {
-    public static readonly TypeName = `@microsoft/wet-ink-handler`;
+export class WInkSharedInkingSession extends DataObject {
+    public static readonly TypeName = `@microsoft/wink-shared-inking-session`;
     public static readonly factory = new DataObjectFactory(
-        SharedInkingSession.TypeName,
-        SharedInkingSession,
+        WInkSharedInkingSession.TypeName,
+        WInkSharedInkingSession,
         [],
         {}
     );

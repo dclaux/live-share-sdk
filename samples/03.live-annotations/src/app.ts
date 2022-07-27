@@ -6,12 +6,12 @@
 import { TeamsFluidClient } from "@microsoft/live-share";
 import { LOCAL_MODE_TENANT_ID } from "@fluidframework/azure-client";
 import { InsecureTokenProvider } from "@fluidframework/test-client-utils";
-import { SharedInkingSession } from "./SharedInkingSession";
-import { InkingManager } from "./InkingManager";
+import { WInkSharedInkingSession } from "./WInk/SharedInkingSession";
+import { InkingManager } from "./WInk/InkingManager";
 
 const containerSchema = {
     initialObjects: {
-        inkingSession: SharedInkingSession
+        inkingSession: WInkSharedInkingSession
     }
 };
 
