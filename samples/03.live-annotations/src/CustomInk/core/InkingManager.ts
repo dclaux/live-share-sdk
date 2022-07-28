@@ -1,7 +1,8 @@
+import { EventEmitter } from "events";
 import { InkingCanvas } from "../canvas/InkingCanvas";
-import { DryCanvas, DryWetCanvas, WetCanvas } from "../canvas/DryWetCanvas";
+import { DryCanvas, WetCanvas } from "../canvas/DryWetCanvas";
 import { LaserPointerCanvas } from "../canvas/LaserPointerCanvas";
-import { IPoint, IPointerPoint, makeRectangleFromPoint, Stroke, IStroke } from "./Geometry";
+import { IPoint, IPointerPoint, makeRectangleFromPoint, Stroke, IStroke, IStrokeCreationOptions } from "./Geometry";
 import { InputFilterCollection } from "../input/InputFilter";
 import { JitterFilter } from "../input/JitterFilter";
 import { getCoalescedEvents, pointerEventToPoint } from "./Utils";
@@ -16,18 +17,43 @@ export enum InkingTool {
     PointEraser
 }
 
+export type StrokeBasedTool = InkingTool.Stroke | InkingTool.LaserPointer;
+
+export const ClearEvent: symbol = Symbol();
+export const StrokesAddedEvent: symbol = Symbol();
+export const StrokesRemovedEvent: symbol = Symbol();
+
+export interface IBeginStrokeEventArgs {
+    tool: StrokeBasedTool;
+    strokeId: string;
+    drawingAttributes: IDrawingAttributes;
+    startPoint: IPointerPoint;
+}
+
+export const BeginStrokeEvent: symbol = Symbol();
+
+export interface IAddPointEventArgs {
+    strokeId: string;
+    point: IPointerPoint
+}
+
+export const AddPointEvent: symbol = Symbol();
+export const EndStrokeEvent: symbol = Symbol();
+
 export interface IWetStroke extends IStroke {
+    readonly tool: StrokeBasedTool;
     end(p: IPointerPoint): void;
     cancel(): void;
 }
 
-export class InkingManager {
+export class InkingManager extends EventEmitter {
     private static WetStroke = class extends Stroke implements IWetStroke {
         constructor(
-            drawingAttributes: IDrawingAttributes,
             private _owner: InkingManager,
-            private _canvas: InkingCanvas) {
-            super(drawingAttributes);
+            private _canvas: InkingCanvas,
+            readonly tool: StrokeBasedTool,
+            options?: IStrokeCreationOptions) {
+            super(options);
         }
 
         addPoint(p: IPointerPoint): boolean {
@@ -109,7 +135,7 @@ export class InkingManager {
 
     private stopPointEraseProcessing() {
         if (this._pointEraseProcessingInterval !== 0) {
-            clearTimeout(this._pointEraseProcessingInterval);
+            clearInterval(this._pointEraseProcessingInterval);
 
             this._pointEraseProcessingInterval = 0;
         }
@@ -137,7 +163,9 @@ export class InkingManager {
             switch (this._currentTool) {
                 case InkingTool.Stroke:
                 case InkingTool.LaserPointer:
-                    this._currentStroke = this.beginWetStroke(filteredPoint);
+                    this._currentStroke = this.beginWetStroke(this._currentTool, filteredPoint);
+
+                    this.internalBeginStroke(this._currentTool, this._currentStroke);
                     break;
                 case InkingTool.Eraser:
                     this.erase(filteredPoint);
@@ -146,8 +174,6 @@ export class InkingManager {
                     this._pendingPointErasePoints.push(filteredPoint);
 
                     this.schedulePointEraseProcessing();
-
-                    // this.pointErase(filteredPoint);
                     break;
                 default:
                     throw new Error("Unsupported tool.")
@@ -168,6 +194,8 @@ export class InkingManager {
 
                     if (this._currentStroke) {
                         this._currentStroke.addPoint(filteredPoint);
+
+                        this.internalAddPoint(this._currentStroke.id, filteredPoint);
                     }
                     else {
                         switch (this._currentTool) {
@@ -178,7 +206,6 @@ export class InkingManager {
                                 this._pendingPointErasePoints.push(filteredPoint);
 
                                 this.schedulePointEraseProcessing();
-                                // this.pointErase(filteredPoint);
                                 break;
                         }
                     }
@@ -200,13 +227,14 @@ export class InkingManager {
                 case InkingTool.LaserPointer:
                     if (this._currentStroke) {
                         this._currentStroke.end(filteredPoint);
+
+                        this.internalEndStroke(this._currentStroke.id, filteredPoint);
+
                         this._currentStroke = undefined;
                     }
 
                     break;
                 case InkingTool.PointEraser:
-                    this._pendingPointErasePoints.push(filteredPoint);
-
                     this.stopPointEraseProcessing();
 
                     break;
@@ -224,29 +252,75 @@ export class InkingManager {
     };
 
     private internalAddStroke(stroke: IStroke) {
-        this._strokes.set(stroke.id, stroke);
-        this._dryCanvas.renderStroke(stroke);
+        if (this._strokes.has(stroke.id)) {
+            this._strokes.set(stroke.id, stroke);
+
+            this.reRender();
+        }
+        else {
+            this._strokes.set(stroke.id, stroke);
+            this._dryCanvas.renderStroke(stroke);
+        }
 
         this.internalStrokesAdded(stroke);
     }
 
-    private wetStrokeEnded(stroke: IStroke) {
-        if (this._currentTool === InkingTool.Stroke) {
+    private wetStrokeEnded(stroke: IWetStroke) {
+        if (stroke.tool === InkingTool.Stroke) {
             this.internalAddStroke(stroke);
         }
     }
 
-    protected internalStrokesAdded(...stroke: IStroke[]) {
-        // Do nothing in base implementation
+    protected internalStrokesAdded(...strokes: IStroke[]) {
+        if (strokes.length > 0) {
+            this.emit(StrokesAddedEvent, strokes);
+        }
     }
 
-    protected internalStrokesRemoved(...strokeId: string[]) {
-        // Do nothing in base implementation
+    protected internalStrokesRemoved(...strokeIds: string[]) {
+        if (strokeIds.length > 0) {
+            this.emit(StrokesRemovedEvent, strokeIds);
+        }
+    }
+
+    protected internalCleared() {
+        this.emit(ClearEvent);
+    }
+
+    protected internalBeginStroke(tool: StrokeBasedTool, stroke: IWetStroke) {
+        const eventArgs: IBeginStrokeEventArgs = {
+            tool: stroke.tool,
+            strokeId: stroke.id,
+            drawingAttributes: stroke.drawingAttributes,
+            startPoint: stroke.getPointAt(0)
+        }
+
+        this.emit(BeginStrokeEvent, eventArgs);
+    }
+
+    protected internalAddPoint(strokeId: string, point: IPointerPoint) {
+        const eventArgs: IAddPointEventArgs = {
+            strokeId,
+            point
+        }
+
+        this.emit(AddPointEvent, eventArgs);
+    }
+
+    protected internalEndStroke(strokeId: string, point: IPointerPoint) {
+        const eventArgs: IAddPointEventArgs = {
+            strokeId,
+            point
+        }
+
+        this.emit(EndStrokeEvent, eventArgs);
     }
 
     drawingAttributes: IDrawingAttributes = DefaultDrawingAttributes;
 
     constructor(host: HTMLElement) {
+        super();
+
         this._host = host;
 
         this._dryCanvas = new DryCanvas(this._host);
@@ -278,15 +352,28 @@ export class InkingManager {
         this._inputProvider.off(InputProvider.PointerUp, this.onPointerUp);
     }
 
-    public beginWetStroke(p: IPointerPoint): IWetStroke {
-        const stroke = new InkingManager.WetStroke(
-            this.drawingAttributes,
-            this,
-            this._currentTool === InkingTool.Stroke ? new WetCanvas(this._wetCanvasPoolHost) : new LaserPointerCanvas(this._wetCanvasPoolHost));
+    public clear() {
+        this._strokes.clear();
 
-        stroke.addPoint(p);
+        this.reRender();
+
+        this.internalCleared();
+    }
+
+    public beginWetStroke(tool: StrokeBasedTool, startPoint: IPointerPoint, options?: IStrokeCreationOptions): IWetStroke {
+        const stroke = new InkingManager.WetStroke(
+            this,
+            tool === InkingTool.Stroke ? new WetCanvas(this._wetCanvasPoolHost) : new LaserPointerCanvas(this._wetCanvasPoolHost),
+            tool,
+            options);
+
+        stroke.addPoint(startPoint);
 
         return stroke;
+    }
+
+    public getStroke(id: string): IStroke | undefined {
+        return this._strokes.get(id);
     }
 
     public addStroke(stroke: IStroke) {
@@ -357,6 +444,8 @@ export class InkingManager {
             this._strokes = newStrokes;
 
             window.requestAnimationFrame(() => { this.reRender() });
+
+            console.log(`pointErase: ${addedStrokes.length} new strokes, ${removedStrokes.length} removed strokes. Total strokes: ${this._strokes.size}`);
 
             this.internalStrokesAdded(...addedStrokes);
             this.internalStrokesRemoved(...removedStrokes);
