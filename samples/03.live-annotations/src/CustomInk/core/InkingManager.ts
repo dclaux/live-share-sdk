@@ -221,7 +221,12 @@ export class InkingManager extends EventEmitter {
             switch (this._currentTool) {
                 case InkingTool.Stroke:
                 case InkingTool.LaserPointer:
-                    this._currentStroke = this.beginWetStroke(this._currentTool, filteredPoint);
+                    this._currentStroke = this.beginWetStroke(
+                        this._currentTool,
+                        filteredPoint,
+                        {
+                            drawingAttributes: this.drawingAttributes
+                        });
 
                     this.internalBeginStroke(this._currentTool, this._currentStroke);
                     break;
