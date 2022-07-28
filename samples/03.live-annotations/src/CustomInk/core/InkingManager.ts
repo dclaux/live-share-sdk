@@ -8,7 +8,7 @@ import { JitterFilter } from "../input/JitterFilter";
 import { getCoalescedEvents, pointerEventToPoint } from "./Utils";
 import { InputProvider } from "../input/InputProvider";
 import { PointerInputProvider } from "../input/PointerInputProvider";
-import { DefaultDrawingAttributes, IDrawingAttributes } from "../canvas/DrawingAttributes";
+import { Colors, DefaultDrawingAttributes, IColor, IDrawingAttributes } from "../canvas/DrawingAttributes";
 
 export enum InkingTool {
     Stroke,
@@ -225,10 +225,10 @@ export class InkingManager extends EventEmitter {
                         this._currentTool,
                         filteredPoint,
                         {
-                            drawingAttributes: this.drawingAttributes
+                            drawingAttributes: DefaultDrawingAttributes
                         });
 
-                    this.internalBeginStroke(this._currentTool, this._currentStroke);
+                    this.internalBeginStroke(this._currentStroke);
                     break;
                 case InkingTool.Eraser:
                     this.erase(filteredPoint);
@@ -255,22 +255,26 @@ export class InkingManager extends EventEmitter {
                 (e: PointerEvent) => {
                     const filteredPoint = this._inputFilters.filterPoint(pointerEventToPoint(e));
 
-                    if (this._currentStroke) {
-                        this._currentStroke.addPoint(filteredPoint);
+                    switch (this._currentTool) {
+                        case InkingTool.Stroke:
+                        case InkingTool.LaserPointer:
+                            if (this._currentStroke) {
+                                this._currentStroke.addPoint(filteredPoint);
 
-                        this.internalAddPoint(this._currentStroke.id, filteredPoint);
-                    }
-                    else {
-                        switch (this._currentTool) {
-                            case InkingTool.Eraser:
-                                this.erase(filteredPoint);
-                                break;
-                            case InkingTool.PointEraser:
-                                this._pendingPointErasePoints.push(filteredPoint);
+                                this.internalAddPoint(this._currentStroke.id, filteredPoint);
+                            }
 
-                                this.schedulePointEraseProcessing();
-                                break;
-                        }
+                            break;
+                        case InkingTool.Eraser:
+                            this.erase(filteredPoint);
+
+                            break;
+                        case InkingTool.PointEraser:
+                            this._pendingPointErasePoints.push(filteredPoint);
+
+                            this.schedulePointEraseProcessing();
+
+                            break;
                     }
 
                     this._previousPoint = filteredPoint;
@@ -415,7 +419,7 @@ export class InkingManager extends EventEmitter {
         this.emit(ClearEvent);
     }
 
-    protected internalBeginStroke(tool: StrokeBasedTool, stroke: IWetStroke) {
+    protected internalBeginStroke(stroke: IWetStroke) {
         const eventArgs: IBeginStrokeEventArgs = {
             tool: stroke.tool,
             strokeId: stroke.id,
