@@ -146,6 +146,7 @@ export class InkingManager extends EventEmitter {
     private _pointEraseProcessingInterval: number = 0;
     private _pendingPointErasePoints: IPoint[] = [];
     private _changeLog: ChangeLog = new ChangeLog();
+    private _isUpdating: boolean = false;
 
     private reRender() {
         this._dryCanvas.clear();
@@ -458,6 +459,18 @@ export class InkingManager extends EventEmitter {
         this._inputProvider = new PointerInputProvider(this._dryCanvas.context.canvas);
     }
 
+    public beginUpdate() {
+        this._isUpdating = true;
+    }
+
+    public endUpdate() {
+        if (this._isUpdating) {
+            this._isUpdating = false;
+
+            this.flushChangeLog();
+        }
+    }
+
     public activate(): void {
         this._inputProvider.activate();
 
@@ -501,7 +514,9 @@ export class InkingManager extends EventEmitter {
     public addStroke(stroke: IStroke) {
         this.internalAddStroke(stroke);
 
-        this.flushChangeLog();
+        if (!this._isUpdating) {
+            this.flushChangeLog();
+        }
     }
 
     public removeStroke(id: string) {
@@ -510,14 +525,16 @@ export class InkingManager extends EventEmitter {
 
             this._changeLog.removeStroke(id);
 
-            this.flushChangeLog();
+            if (!this._isUpdating) {
+                this.flushChangeLog();
+            }
         }
     }
 
     public erase(p: IPoint) {
         const result = this.internalErase(p);
 
-        if (result.hasChanges) {
+        if (!this._isUpdating) {
             this.flushChangeLog();
         }
     }
@@ -525,7 +542,7 @@ export class InkingManager extends EventEmitter {
     public pointErase(p: IPoint) {
         const result = this.internalPointErase(p);
 
-        if (result) {
+        if (!this._isUpdating) {
             this.flushChangeLog();
         }
     }
