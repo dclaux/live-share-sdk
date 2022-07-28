@@ -46,6 +46,11 @@ export interface IWetStroke extends IStroke {
     cancel(): void;
 }
 
+interface IPointEraseResults {
+    addedStrokes: Map<string, IStroke>;
+    removedStrokes: Set<string>;
+}
+
 export class InkingManager extends EventEmitter {
     private static WetStroke = class extends Stroke implements IWetStroke {
         constructor(
@@ -102,6 +107,7 @@ export class InkingManager extends EventEmitter {
     private _previousPoint?: IPointerPoint;
     private _pointEraseProcessingInterval: number = 0;
     private _pendingPointErasePoints: IPoint[] = [];
+    private _pendingPointEraseChanges?: IPointEraseResults;
 
     private reRender() {
         this._dryCanvas.clear();
@@ -115,7 +121,7 @@ export class InkingManager extends EventEmitter {
 
     private processPendingPointErasePoints(flush: boolean = false) {
         for (let p of this._pendingPointErasePoints) {
-            this.pointErase(p);
+            this.internalPointErase(p);
         }
 
         this._pendingPointErasePoints = [];
@@ -141,6 +147,8 @@ export class InkingManager extends EventEmitter {
         }
 
         this.processPendingPointErasePoints(true);
+
+        this.flushPointEraseChanges();
     }
 
     private onPointerDown: (e: PointerEvent) => void = (e: PointerEvent): void => {
@@ -269,6 +277,78 @@ export class InkingManager extends EventEmitter {
         if (stroke.tool === InkingTool.Stroke) {
             this.internalAddStroke(stroke);
         }
+    }
+
+    private bufferPointEraseChanges(changes: IPointEraseResults) {
+        if (!this._pendingPointEraseChanges) {
+            this._pendingPointEraseChanges = changes;
+        }
+        else {
+            for (let id of changes.removedStrokes) {
+                if (!this._pendingPointEraseChanges.addedStrokes.delete(id)) {
+                    this._pendingPointEraseChanges.removedStrokes.add(id);
+                }
+            }
+
+            changes.addedStrokes.forEach(
+                (value: IStroke) => {
+                    this._pendingPointEraseChanges?.addedStrokes.set(value.id, value);
+                });
+        }
+    }
+
+    private flushPointEraseChanges() {
+        if (this._pendingPointEraseChanges) {
+            this.internalStrokesRemoved(...this._pendingPointEraseChanges.removedStrokes);
+            this.internalStrokesAdded(...this._pendingPointEraseChanges.addedStrokes.values());
+
+            this._pendingPointEraseChanges = undefined;
+        }
+    }
+
+    private internalPointErase(p: IPoint): IPointEraseResults | undefined {
+        const eraserRect = makeRectangleFromPoint(p, 20, 20);
+        const results: IPointEraseResults = {
+            addedStrokes: new Map<string, IStroke>(),
+            removedStrokes: new Set<string>()
+        }
+
+        let changesOccurred = false;
+
+        this._strokes.forEach(
+            (stroke: IStroke) => {
+                const strokes = stroke.pointErase(eraserRect);
+
+                if (strokes) {
+                    results.removedStrokes.add(stroke.id);
+
+                    for (const s of strokes) {
+                        results.addedStrokes.set(s.id, s);
+                    }
+
+                    changesOccurred = true;
+                }
+            }
+        );
+
+        if (changesOccurred) {
+            for (let id of results.removedStrokes) {
+                this._strokes.delete(id);
+            }
+
+            results.addedStrokes.forEach(
+                (value: IStroke, key: string) => {
+                    this._strokes.set(value.id, value);
+                });
+
+            window.requestAnimationFrame(() => { this.reRender() });
+
+            this.bufferPointEraseChanges(results);
+
+            return results;
+        }
+
+        return undefined;
     }
 
     protected internalStrokesAdded(...strokes: IStroke[]) {
@@ -411,44 +491,10 @@ export class InkingManager extends EventEmitter {
     }
 
     public pointErase(p: IPoint) {
-        const eraserRect = makeRectangleFromPoint(p, 20, 20);
-        const newStrokes: Map<string, IStroke> = new Map<string, IStroke>();
+        const results = this.internalPointErase(p);
 
-        let changesOccurred = false;
-
-        const addedStrokes: IStroke[] = [];
-        const removedStrokes: string[] = [];
-
-        this._strokes.forEach(
-            (stroke: IStroke) => {
-                const strokes = stroke.pointErase(eraserRect);
-
-                if (strokes) {
-                    removedStrokes.push(stroke.id);
-
-                    for (const s of strokes) {
-                        addedStrokes.push(s);
-
-                        newStrokes.set(s.id, s);
-                    }
-
-                    changesOccurred = true;
-                }
-                else {
-                    newStrokes.set(stroke.id, stroke);
-                }
-            }
-        );
-
-        if (changesOccurred) {
-            this._strokes = newStrokes;
-
-            window.requestAnimationFrame(() => { this.reRender() });
-
-            console.log(`pointErase: ${addedStrokes.length} new strokes, ${removedStrokes.length} removed strokes. Total strokes: ${this._strokes.size}`);
-
-            this.internalStrokesAdded(...addedStrokes);
-            this.internalStrokesRemoved(...removedStrokes);
+        if (results) {
+            this.flushPointEraseChanges();
         }
     }
 
