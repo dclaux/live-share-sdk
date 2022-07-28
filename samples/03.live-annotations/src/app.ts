@@ -35,10 +35,8 @@ async function start() {
     const inkingHost = document.getElementById("inkingHost");
 
     if (inkingHost) {
-        inkingManager = new InkingManager(inkingHost);
+        inkingManager = (container.initialObjects.inkingSession as SharedInkingSession).synchronize(inkingHost);
         inkingManager.activate();
-
-        (container.initialObjects.inkingSession as any).start(inkingManager);
     }
 }
 

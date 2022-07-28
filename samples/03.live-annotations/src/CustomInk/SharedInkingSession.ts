@@ -21,8 +21,8 @@ export class SharedInkingSession extends DataObject {
         {}
     );
 
-    private _processingIncomingChanges = false;
     private _inkingManager?: InkingManager;
+    private _processingIncomingChanges = false;
     private _dryInkMap!: SharedMap;
     private _wetStrokes: Map<string, IWetStroke> = new Map<string, IWetStroke>();
 
@@ -198,13 +198,13 @@ export class SharedInkingSession extends DataObject {
         }
     }
 
-    start(inkingManager: InkingManager) {
-        if (this._inkingManager !== inkingManager) {
-            this._inkingManager = inkingManager;
+    synchronize(hostElement: HTMLElement): InkingManager {
+        this._inkingManager = new InkingManager(hostElement);
 
-            this.setupDryInkProcessing();
-            this.setupWetInkProcessing();
-            this.setupFluidSignalsProcessing();
-        }
+        this.setupDryInkProcessing();
+        this.setupWetInkProcessing();
+        this.setupFluidSignalsProcessing();
+
+        return this._inkingManager;
     }
 }
