@@ -321,8 +321,9 @@ export class Stroke implements IStroke {
         }
 
         this._id = effectiveOptions.id ?? generateUniqueId();
-        this._brush = {...(effectiveOptions.brush ?? DefaultStrokeBrush)};
         this._points = effectiveOptions.points ?? [];
+
+        this.brush = {...(effectiveOptions.brush ?? DefaultStrokeBrush)};
     }
 
     addPoint(p: IPointerPoint): boolean {
@@ -515,5 +516,9 @@ export class Stroke implements IStroke {
 
     get brush(): IBrush {
         return this._brush;
+    }
+
+    set brush(value: IBrush) {
+        this._brush = {...value};
     }
 }

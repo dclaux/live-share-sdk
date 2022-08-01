@@ -148,6 +148,23 @@ export class InkingManager extends EventEmitter {
     private _pendingPointErasePoints: IPoint[] = [];
     private _changeLog: ChangeLog = new ChangeLog();
     private _isUpdating: boolean = false;
+    private _hostResizeObserver: ResizeObserver;
+
+    private onHostResized = (entries: ResizeObserverEntry[], observer: ResizeObserver) => {
+        console.log("Host resized");
+
+        if (entries.length >= 1) {
+            const entry = entries[0];
+
+            this._wetCanvasPoolHost.style.width = entry.contentRect.width + "px";
+            this._wetCanvasPoolHost.style.height = entry.contentRect.height + "px";;
+
+            this._dryCanvas.resize(entry.contentRect.width, entry.contentRect.height);
+
+            // Re-render synchronously to avoid flicker
+            this.reRender();
+        }
+    };
 
     private reRender() {
         this._dryCanvas.clear();
@@ -483,13 +500,14 @@ export class InkingManager extends EventEmitter {
 
         this._wetCanvasPoolHost = document.createElement("div");
         this._wetCanvasPoolHost.style.position = "absolute";
-        this._wetCanvasPoolHost.style.width = this._host.clientWidth + "px";
-        this._wetCanvasPoolHost.style.height = this._host.clientHeight + "px";;
         this._wetCanvasPoolHost.style.pointerEvents = "none";
 
         this._host.appendChild(this._wetCanvasPoolHost);
 
         this._inputProvider = new PointerInputProvider(this._dryCanvas.context.canvas);
+
+        this._hostResizeObserver = new ResizeObserver(this.onHostResized);
+        this._hostResizeObserver.observe(this._host);
     }
 
     public beginUpdate() {
@@ -529,9 +547,12 @@ export class InkingManager extends EventEmitter {
     }
 
     public beginWetStroke(tool: StrokeBasedTool, startPoint: IPointerPoint, options?: IStrokeCreationOptions): IWetStroke {
+        const canvas = tool === InkingTool.LaserPointer ? new LaserPointerCanvas(this._wetCanvasPoolHost) : new WetCanvas(this._wetCanvasPoolHost);
+        canvas.resize(this._host.clientWidth, this._host.clientHeight);
+
         const stroke = new InkingManager.WetStroke(
             this,
-            tool === InkingTool.LaserPointer ? new LaserPointerCanvas(this._wetCanvasPoolHost) : new WetCanvas(this._wetCanvasPoolHost),
+            canvas,
             tool,
             options);
 

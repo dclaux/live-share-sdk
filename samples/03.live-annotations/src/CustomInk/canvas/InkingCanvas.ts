@@ -1,9 +1,9 @@
 import { TWO_PI, IPointerPoint, IQuad, IPoint, IStroke } from "../core/Geometry";
-import { clear2DCanvas, colorToCssColor, getScaledCanvasRenderingContext2D } from "../core/Utils";
+import { colorToCssColor } from "../core/Utils";
 import { DefaultStrokeBrush, IBrush } from "./Brush";
 
 export abstract class InkingCanvas {
-    public readonly context: CanvasRenderingContext2D;
+    private _context: CanvasRenderingContext2D;
 
     private _internalRenderCallback = () => {
         this.internalRender();
@@ -25,27 +25,55 @@ export abstract class InkingCanvas {
         return true;
     }
 
-    constructor(parentElement: HTMLElement) {
+    constructor(parentElement?: HTMLElement) {
         const canvas = document.createElement("canvas");
         canvas.style.position = "absolute";
         canvas.style.touchAction = "none";
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
 
-        parentElement.appendChild(canvas);
+        const default2DOptions: CanvasRenderingContext2DSettings = {
+            alpha: true,
+            desynchronized: false
+        };
+        
+        const context: CanvasRenderingContext2D | null = canvas.getContext('2d', default2DOptions);
 
-        this.context = getScaledCanvasRenderingContext2D(
-            canvas,
-            window.devicePixelRatio,
-            canvas.clientWidth,
-            canvas.clientHeight
-        );
+        if (context === null) {
+            throw new Error('Could not get 2D context from canvas.');
+        }
+    
+        this._context = context;
+
+        if (parentElement) {
+            parentElement.appendChild(canvas);
+
+            this.resize(parentElement.clientWidth, parentElement.clientHeight);
+        }
 
         this.setBrush(DefaultStrokeBrush);
     }
 
+    resize(width: number, height: number) {
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
+    
+        this.canvas.width = width * window.devicePixelRatio;
+        this.canvas.height = height * window.devicePixelRatio;
+
+        this.context.scale(window.devicePixelRatio, window.devicePixelRatio);        
+    }
+
     clear() {
-        clear2DCanvas(this.context);
+        this.context.save();
+
+        // Reset transform to identity to clear the whole canvas
+        this.context.setTransform(1, 0, 0, 1, 0, 0);
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+        this.context.restore();
+    }
+
+    copy(source: InkingCanvas) {
+        this.context.drawImage(source.canvas, 0, 0);
     }
 
     beginStroke(p: IPointerPoint) {
@@ -132,6 +160,14 @@ export abstract class InkingCanvas {
 
         this.context.strokeStyle = colorToCssColor(this._brush.color);
         this.context.fillStyle = colorToCssColor(this._brush.color);
+    }
+
+    get context(): CanvasRenderingContext2D {
+        return this._context;
+    }
+
+    get canvas(): HTMLCanvasElement {
+        return this.context.canvas;
     }
 
     get hasStrokeEnded(): boolean {
