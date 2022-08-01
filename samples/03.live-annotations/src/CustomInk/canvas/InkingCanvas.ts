@@ -1,6 +1,6 @@
 import { TWO_PI, IPointerPoint, IQuad, IPoint, IStroke } from "../core/Geometry";
 import { clear2DCanvas, colorToCssColor, getScaledCanvasRenderingContext2D } from "../core/Utils";
-import { DefaultDrawingAttributes, IDrawingAttributes } from "./DrawingAttributes";
+import { DefaultStrokeBrush, IBrush } from "./Brush";
 
 export abstract class InkingCanvas {
     public readonly context: CanvasRenderingContext2D;
@@ -13,11 +13,8 @@ export abstract class InkingCanvas {
         }
     }
 
-    // private _asyncRendering: boolean = true;
     private _strokeStarted: boolean = false;
-    private _drawingAttributes!: IDrawingAttributes;
-    private _tipHalfWidth: number = 1;
-    private _tipHalfHeight: number = 1;
+    private _brush!: IBrush;
 
     protected abstract internalRender(): void;
     protected abstract internalBeginStroke(p: IPointerPoint): void;
@@ -44,7 +41,7 @@ export abstract class InkingCanvas {
             canvas.clientHeight
         );
 
-        this.setDrawingAttributes(DefaultDrawingAttributes);
+        this.setBrush(DefaultStrokeBrush);
     }
 
     clear() {
@@ -77,7 +74,7 @@ export abstract class InkingCanvas {
     }
 
     renderStroke(stroke: IStroke) {
-        this.setDrawingAttributes(stroke.drawingAttributes);
+        this.setBrush(stroke.brush);
 
         for (let i = 0; i < stroke.length; i++) {
             if (i === 0) {
@@ -130,31 +127,18 @@ export abstract class InkingCanvas {
         this.context.canvas.style.pointerEvents = 'none';
     }
 
-    setDrawingAttributes(value: IDrawingAttributes) {
-        if (this._drawingAttributes != value) {
-            this._drawingAttributes = value;
+    setBrush(value: IBrush) {
+        this._brush = value;
 
-            this._tipHalfWidth = this.drawingAttributes.tipWidth / 2;
-            this._tipHalfHeight = this.drawingAttributes.tipHeight / 2;
-
-            this.context.strokeStyle = colorToCssColor(this.drawingAttributes.color);
-            this.context.fillStyle = colorToCssColor(this.drawingAttributes.color);
-        }
+        this.context.strokeStyle = colorToCssColor(this._brush.color);
+        this.context.fillStyle = colorToCssColor(this._brush.color);
     }
 
     get hasStrokeEnded(): boolean {
         return !this._strokeStarted;
     }
 
-    get drawingAttributes(): IDrawingAttributes {
-        return this._drawingAttributes;
-    }
-
-    get tipHalfWidth(): number {
-        return this._tipHalfWidth;
-    }
-
-    get tipHalfHeight(): number {
-        return this._tipHalfHeight;
+    get brush(): IBrush {
+        return this._brush;
     }
 }

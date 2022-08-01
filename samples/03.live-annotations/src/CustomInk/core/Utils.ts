@@ -1,5 +1,5 @@
 import { v4 as uuid } from "uuid";
-import { IColor } from "../canvas/DrawingAttributes";
+import { IColor } from "../canvas/Brush";
 import { IPointerPoint } from "./Geometry";
 
 export function generateUniqueId(): string {

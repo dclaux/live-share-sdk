@@ -80,9 +80,9 @@ export class SharedInkingSession extends DataObject {
                             eventArgs.startPoint,
                             {
                                 id: eventArgs.strokeId,
-                                drawingAttributes: eventArgs.drawingAttributes
+                                brush: eventArgs.brush
                             });
-                        stroke.drawingAttributes = eventArgs.drawingAttributes;
+                        stroke.brush = eventArgs.brush;
 
                         this._wetStrokes.set(eventArgs.strokeId, stroke);
                     }

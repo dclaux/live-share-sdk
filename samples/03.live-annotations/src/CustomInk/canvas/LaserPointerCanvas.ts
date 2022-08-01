@@ -24,9 +24,9 @@ export class LaserPointerCanvas extends InkingCanvas {
         this.clear();
 
         let previousPoint: IPointerPoint | undefined = undefined;
+        let radius = this.brush.tipSize / 2;
 
-        const radiusStep = (this.tipHalfWidth - 1) / this._points.length;
-        let radius = this.tipHalfWidth;
+        const radiusStep = (radius - 1) / this._points.length;
 
         const quad: IQuad = {
             p1: { x: 0, y: 0 },

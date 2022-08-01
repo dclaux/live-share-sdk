@@ -8,16 +8,17 @@ import { JitterFilter } from "../input/JitterFilter";
 import { getCoalescedEvents, pointerEventToPoint } from "./Utils";
 import { InputProvider } from "../input/InputProvider";
 import { PointerInputProvider } from "../input/PointerInputProvider";
-import { Colors, DefaultDrawingAttributes, IColor, IDrawingAttributes } from "../canvas/DrawingAttributes";
+import { Brush, DefaultHighlighterBrush, DefaultLaserPointerBrush, DefaultStrokeBrush, IBrush } from "../canvas/Brush";
 
 export enum InkingTool {
     Stroke,
     LaserPointer,
+    Highlighter,
     Eraser,
     PointEraser
 }
 
-export type StrokeBasedTool = InkingTool.Stroke | InkingTool.LaserPointer;
+export type StrokeBasedTool = InkingTool.Stroke | InkingTool.LaserPointer | InkingTool.Highlighter;
 
 export const ClearEvent: symbol = Symbol();
 export const StrokesAddedEvent: symbol = Symbol();
@@ -26,7 +27,7 @@ export const StrokesRemovedEvent: symbol = Symbol();
 export interface IBeginStrokeEventArgs {
     tool: StrokeBasedTool;
     strokeId: string;
-    drawingAttributes: IDrawingAttributes;
+    brush: IBrush;
     startPoint: IPointerPoint;
 }
 
@@ -104,7 +105,7 @@ export class InkingManager extends EventEmitter {
 
             if (result) {
                 if (this.length === 1) {
-                    this._canvas.setDrawingAttributes(this.drawingAttributes);
+                    this._canvas.setBrush(this.brush);
                     this._canvas.beginStroke(p);
                 }
                 else {
@@ -137,7 +138,7 @@ export class InkingManager extends EventEmitter {
     private readonly _dryCanvas: InkingCanvas;
     private readonly _inputFilters: InputFilterCollection = new InputFilterCollection(new JitterFilter());
 
-    private _currentTool: InkingTool = InkingTool.Stroke;
+    private _tool: InkingTool = InkingTool.Stroke;
     private _activePointerId?: number;
     private _inputProvider!: InputProvider;
     private _currentStroke?: IWetStroke;
@@ -218,14 +219,33 @@ export class InkingManager extends EventEmitter {
 
             const filteredPoint = this._inputFilters.filterPoint(p);
 
-            switch (this._currentTool) {
+            switch (this._tool) {
                 case InkingTool.Stroke:
-                case InkingTool.LaserPointer:
                     this._currentStroke = this.beginWetStroke(
-                        this._currentTool,
+                        InkingTool.Stroke,
                         filteredPoint,
                         {
-                            drawingAttributes: DefaultDrawingAttributes
+                            brush: this.strokeBrush
+                        });
+
+                    this.internalBeginStroke(this._currentStroke);
+                    break;
+                case InkingTool.LaserPointer:
+                    this._currentStroke = this.beginWetStroke(
+                        InkingTool.LaserPointer,
+                        filteredPoint,
+                        {
+                            brush: this.laserPointerBrush
+                        });
+
+                    this.internalBeginStroke(this._currentStroke);
+                    break;
+                case InkingTool.Highlighter:
+                    this._currentStroke = this.beginWetStroke(
+                        InkingTool.Highlighter,
+                        filteredPoint,
+                        {
+                            brush: this.highlighterBrush
                         });
 
                     this.internalBeginStroke(this._currentStroke);
@@ -255,9 +275,10 @@ export class InkingManager extends EventEmitter {
                 (e: PointerEvent) => {
                     const filteredPoint = this._inputFilters.filterPoint(pointerEventToPoint(e));
 
-                    switch (this._currentTool) {
+                    switch (this._tool) {
                         case InkingTool.Stroke:
                         case InkingTool.LaserPointer:
+                        case InkingTool.Highlighter:
                             if (this._currentStroke) {
                                 this._currentStroke.addPoint(filteredPoint);
 
@@ -289,9 +310,10 @@ export class InkingManager extends EventEmitter {
         if (this._activePointerId === e.pointerId) {
             const filteredPoint = this._inputFilters.filterPoint(pointerEventToPoint(e));
 
-            switch (this._currentTool) {
+            switch (this._tool) {
                 case InkingTool.Stroke:
                 case InkingTool.LaserPointer:
+                case InkingTool.Highlighter:
                     if (this._currentStroke) {
                         this._currentStroke.end(filteredPoint);
 
@@ -335,7 +357,7 @@ export class InkingManager extends EventEmitter {
     }
 
     private wetStrokeEnded(stroke: IWetStroke) {
-        if (stroke.tool === InkingTool.Stroke) {
+        if (stroke.tool !== InkingTool.LaserPointer) {
             this.internalAddStroke(stroke);
         }
     }
@@ -423,7 +445,7 @@ export class InkingManager extends EventEmitter {
         const eventArgs: IBeginStrokeEventArgs = {
             tool: stroke.tool,
             strokeId: stroke.id,
-            drawingAttributes: stroke.drawingAttributes,
+            brush: stroke.brush,
             startPoint: stroke.getPointAt(0)
         }
 
@@ -448,7 +470,9 @@ export class InkingManager extends EventEmitter {
         this.emit(EndStrokeEvent, eventArgs);
     }
 
-    drawingAttributes: IDrawingAttributes = DefaultDrawingAttributes;
+    public readonly strokeBrush: Brush = new Brush(DefaultStrokeBrush);
+    public readonly highlighterBrush: Brush = new Brush(DefaultHighlighterBrush);
+    public readonly laserPointerBrush: Brush = new Brush(DefaultLaserPointerBrush);
 
     constructor(host: HTMLElement) {
         super();
@@ -507,7 +531,7 @@ export class InkingManager extends EventEmitter {
     public beginWetStroke(tool: StrokeBasedTool, startPoint: IPointerPoint, options?: IStrokeCreationOptions): IWetStroke {
         const stroke = new InkingManager.WetStroke(
             this,
-            tool === InkingTool.Stroke ? new WetCanvas(this._wetCanvasPoolHost) : new LaserPointerCanvas(this._wetCanvasPoolHost),
+            tool === InkingTool.LaserPointer ? new LaserPointerCanvas(this._wetCanvasPoolHost) : new WetCanvas(this._wetCanvasPoolHost),
             tool,
             options);
 
@@ -557,16 +581,16 @@ export class InkingManager extends EventEmitter {
     }
 
     get tool(): InkingTool {
-        return this._currentTool;
+        return this._tool;
     }
 
     set tool(value: InkingTool) {
-        if (this._currentTool !== value) {
+        if (this._tool !== value) {
             if (this._currentStroke !== undefined) {
                 this._currentStroke.cancel();
             }
 
-            this._currentTool = value;
+            this._tool = value;
         }
     }
 }

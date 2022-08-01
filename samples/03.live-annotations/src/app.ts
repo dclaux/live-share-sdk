@@ -10,7 +10,6 @@ import { InsecureTokenProvider } from "@fluidframework/test-client-utils";
 // import { InkingManager } from "./WInk/InkingManager";
 import { SharedInkingSession } from "./CustomInk/SharedInkingSession";
 import { InkingManager, InkingTool } from "./CustomInk/core/InkingManager";
-import { IColor } from "./CustomInk/canvas/DrawingAttributes";
 
 const containerSchema = {
     initialObjects: {
@@ -51,13 +50,14 @@ window.onload = () => {
 
     setupButton("btnStroke", () => { inkingManager.tool = InkingTool.Stroke });
     setupButton("btnLaserPointer", () => { inkingManager.tool = InkingTool.LaserPointer });
+    setupButton("btnHighlighter", () => { inkingManager.tool = InkingTool.Highlighter });
     setupButton("btnEraser", () => { inkingManager.tool = InkingTool.Eraser });
     setupButton("btnPointEraser", () => { inkingManager.tool = InkingTool.PointEraser });
 
-    setupButton("btnYellow", () => { inkingManager.drawingAttributes = { ...inkingManager.drawingAttributes, color: { r: 255, g: 252, b: 0, a: 1 } }});
-    setupButton("btnGreen", () => { inkingManager.drawingAttributes = { ...inkingManager.drawingAttributes, color: { r: 0, g: 255, b: 0, a: 1 } }});
-    setupButton("btnRed", () => { inkingManager.drawingAttributes = { ...inkingManager.drawingAttributes, color: { r: 255, g: 0, b: 0, a: 1 } }});
-    setupButton("btnBlue", () => { inkingManager.drawingAttributes = { ...inkingManager.drawingAttributes, color: { r: 0, g: 105, b: 175, a: 1 } }});
+    setupButton("btnYellow", () => { inkingManager.strokeBrush.color =  { r: 255, g: 252, b: 0, a: 1 } });
+    setupButton("btnGreen", () => { inkingManager.strokeBrush.color = { r: 0, g: 255, b: 0, a: 1 } });
+    setupButton("btnRed", () => { inkingManager.strokeBrush.color = { r: 255, g: 0, b: 0, a: 1 } });
+    setupButton("btnBlue", () => { inkingManager.strokeBrush.color = { r: 0, g: 105, b: 175, a: 1 } });
 
     setupButton("btnClear", () => { inkingManager.clear() });
 }

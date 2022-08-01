@@ -1,6 +1,6 @@
 import { InkingCanvas } from "./InkingCanvas";
 import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IQuad, IPointerPoint, computeQuadBetweenTwoRectangles } from "../core/Geometry";
-import { IDrawingAttributes } from "./DrawingAttributes";
+import { IBrush } from "./Brush";
 
 export abstract class DryWetCanvas extends InkingCanvas {
     private _pendingPointsStartIndex = 0;
@@ -8,7 +8,15 @@ export abstract class DryWetCanvas extends InkingCanvas {
 
     protected internalRender() {
         if (this._pendingPointsStartIndex < this._points.length) {
-            let previousPoint: IPointerPoint | undefined = this._pendingPointsStartIndex > 0 ? this._points[this._pendingPointsStartIndex - 1] : undefined;
+            const tipHalfSize = this.brush.tipSize / 2;
+
+            let previousPoint: IPointerPoint | undefined = undefined;
+            let previousPointPressureAdjustedTip = 0;
+            
+            if (this._pendingPointsStartIndex > 0) {
+                previousPoint = this._points[this._pendingPointsStartIndex - 1];
+                previousPointPressureAdjustedTip = getPressureAdjustedTipSize(tipHalfSize, previousPoint.pressure);
+            }
 
             const quad: IQuad = {
                 p1: { x: 0, y: 0 },
@@ -20,41 +28,44 @@ export abstract class DryWetCanvas extends InkingCanvas {
             for (let i = this._pendingPointsStartIndex; i < this._points.length; i++) {
                 const p = this._points[i];
 
+                let pressureAdjustedTip = getPressureAdjustedTipSize(tipHalfSize, p.pressure);
+
                 if (i === 0) {
                     this.context.beginPath();
                 }
 
-                if (this.drawingAttributes.tip === "ellipse") {
+                if (this.brush.tip === "ellipse") {
                     if (previousPoint !== undefined && computeQuadBetweenTwoCircles(
                         p,
-                        getPressureAdjustedTipSize(this.tipHalfWidth, p.pressure),
+                        pressureAdjustedTip,
                         previousPoint,
-                        getPressureAdjustedTipSize(this.tipHalfWidth, previousPoint.pressure),
+                        previousPointPressureAdjustedTip,
                         quad)) {
                         this.renderQuad(quad);
                     }
 
-                    this.renderCircle(p, getPressureAdjustedTipSize(this.tipHalfWidth, p.pressure));
+                    this.renderCircle(p, getPressureAdjustedTipSize(tipHalfSize, p.pressure));
                 }
                 else {
                     if (previousPoint !== undefined && computeQuadBetweenTwoRectangles(
                         p,
-                        getPressureAdjustedTipSize(this.tipHalfWidth, p.pressure),
-                        getPressureAdjustedTipSize(this.tipHalfHeight, p.pressure),
+                        pressureAdjustedTip,
+                        pressureAdjustedTip,
                         previousPoint,
-                        getPressureAdjustedTipSize(this.tipHalfWidth, previousPoint.pressure),
-                        getPressureAdjustedTipSize(this.tipHalfHeight, previousPoint.pressure),
+                        previousPointPressureAdjustedTip,
+                        previousPointPressureAdjustedTip,
                         quad)) {
                         this.renderQuad(quad);
                     }
 
                     this.renderRectangle(
                         p,
-                        getPressureAdjustedTipSize(this.tipHalfWidth, p.pressure),
-                        getPressureAdjustedTipSize(this.tipHalfHeight, p.pressure));
+                        pressureAdjustedTip,
+                        pressureAdjustedTip);
                 }
 
                 previousPoint = p;
+                previousPointPressureAdjustedTip = pressureAdjustedTip;
             }
 
             this.context.fill();
@@ -87,22 +98,22 @@ export class DryCanvas extends DryWetCanvas {
         return false;
     }
 
-    setDrawingAttributes(value: IDrawingAttributes) {
-        super.setDrawingAttributes(value);
+    setBrush(value: IBrush) {
+        super.setBrush(value);
 
         // On a dry canvas, blendMode is applied on the context so whatever is drawn combines with what's already drawn
-        this.context.globalCompositeOperation = this.drawingAttributes.blendMode === "normal" ? "source-over" : "darken";
+        this.context.globalCompositeOperation = this.brush.blendMode === "normal" ? "source-over" : "darken";
     }    
 }
 
 export class WetCanvas extends DryWetCanvas {
-    setDrawingAttributes(value: IDrawingAttributes) {
-        super.setDrawingAttributes(value);
+    setBrush(value: IBrush) {
+        super.setBrush(value);
 
         // On a wet canvas, blendMode is applied on the <canvas> element so it is blended with whatever DOM element is
         // under it. The caveat is that mix-blend-mode and globalCompositeOperation do not darken the exact same way.
         // The end result is that when a stroke is "dried", i.e. moved from the wet canvas to the dry canvas, darkened
         // portions will look darker than when being drawn on the wet canvas.
-        this.context.canvas.style.mixBlendMode = this.drawingAttributes.blendMode === "normal" ? "normal" : "darken";
+        this.context.canvas.style.mixBlendMode = this.brush.blendMode === "normal" ? "normal" : "darken";
     }    
 }

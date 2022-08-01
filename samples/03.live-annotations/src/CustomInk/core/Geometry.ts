@@ -1,5 +1,5 @@
 import { generateUniqueId } from "./Utils";
-import { DefaultDrawingAttributes, IDrawingAttributes } from "../canvas/DrawingAttributes";
+import { DefaultStrokeBrush, IBrush } from "../canvas/Brush";
 
 export const TWO_PI: number = Math.PI * 2;
 
@@ -289,38 +289,39 @@ export interface IStroke extends Iterable<IPointerPoint> {
     pointErase(eraserRect: IRect): IStroke[] | undefined;
     serialize(): string;
     deserialize(serializedStroke: string): void;
-    drawingAttributes: IDrawingAttributes;
+    brush: IBrush;
     get id(): string;
     get length(): number;
 }
 
 interface IStrokeData {
     id: string;
-    drawingAttributes: IDrawingAttributes;
+    brush: IBrush;
     points: IPointerPoint[];
 }
 
 export interface IStrokeCreationOptions {
     id?: string;
-    drawingAttributes?: IDrawingAttributes;
+    brush?: IBrush;
     points?: IPointerPoint[]
 }
 
 export class Stroke implements IStroke {
-    private _drawingAttributes: IDrawingAttributes;
+    private _brush: IBrush = {...DefaultStrokeBrush};
     private _points: IPointerPoint[];
     private _iteratorCounter = 0;
     private _id: string;
 
+
     constructor(options?: IStrokeCreationOptions) {
         const effectiveOptions: IStrokeCreationOptions = {
             id: options ? options.id : undefined,
-            drawingAttributes: options ? options.drawingAttributes : undefined,
+            brush: options ? options.brush : undefined,
             points: options ? options.points : undefined
         }
 
         this._id = effectiveOptions.id ?? generateUniqueId();
-        this._drawingAttributes = effectiveOptions.drawingAttributes ?? DefaultDrawingAttributes;
+        this._brush = {...(effectiveOptions.brush ?? DefaultStrokeBrush)};
         this._points = effectiveOptions.points ?? [];
     }
 
@@ -413,7 +414,7 @@ export class Stroke implements IStroke {
         let previousPoint: IPointerPoint | undefined = undefined;
 
         const generatedStrokes: IStroke[] = [];
-        let currentStroke = new Stroke({ drawingAttributes: this.drawingAttributes });
+        let currentStroke = new Stroke({ brush: this.brush });
 
         for (const p of this) {
             if (previousPoint) {
@@ -422,7 +423,7 @@ export class Stroke implements IStroke {
                 if (intersections.length === 1) {
                     // One intersection, we need to cut that segment into two
                     if (isPointInsideRectangle(previousPoint, eraserRect)) {
-                        currentStroke = new Stroke({ drawingAttributes: this.drawingAttributes });
+                        currentStroke = new Stroke({ brush: this.brush });
 
                         currentStroke.addPoint({ ...intersections[0], pressure: previousPoint.pressure });
                         currentStroke.addPoint(p);
@@ -432,7 +433,7 @@ export class Stroke implements IStroke {
 
                         generatedStrokes.push(currentStroke);
 
-                        currentStroke = new Stroke({ drawingAttributes: this.drawingAttributes });
+                        currentStroke = new Stroke({ brush: this.brush });
                     }
                 }
                 else if (intersections.length === 2) {
@@ -446,7 +447,7 @@ export class Stroke implements IStroke {
 
                     generatedStrokes.push(currentStroke);
 
-                    currentStroke = new Stroke({ drawingAttributes: this.drawingAttributes });
+                    currentStroke = new Stroke({ brush: this.brush });
                     currentStroke.addPoint({ ...intersections[secondIndex], pressure: previousPoint.pressure });
                     currentStroke.addPoint(p);
                 }
@@ -476,7 +477,7 @@ export class Stroke implements IStroke {
     serialize(): string {
         const data: IStrokeData = {
             id: this.id,
-            drawingAttributes: this.drawingAttributes,
+            brush: this.brush,
             points: this._points
         };
 
@@ -487,7 +488,7 @@ export class Stroke implements IStroke {
         const data: IStrokeData = JSON.parse(serializedStroke) as IStrokeData;
 
         this._id = data.id;
-        this._drawingAttributes = data.drawingAttributes;
+        this._brush = data.brush;
         this._points = data.points;
     }
 
@@ -512,11 +513,7 @@ export class Stroke implements IStroke {
         return this._points.length;
     }
 
-    get drawingAttributes(): IDrawingAttributes {
-        return this._drawingAttributes;
-    }
-
-    set drawingAttributes(value: IDrawingAttributes) {
-        this._drawingAttributes = value;
+    get brush(): IBrush {
+        return this._brush;
     }
 }
