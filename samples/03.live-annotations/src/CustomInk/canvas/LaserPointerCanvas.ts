@@ -76,6 +76,6 @@ export class LaserPointerCanvas extends InkingCanvas {
     }
 
     protected internalEndStroke(p: IPointerPoint) {
-        this.addPoint(p);
+        this.internalAddPoint(p);
     }
 }

@@ -1,5 +1,5 @@
 import { InkingCanvas } from "./InkingCanvas";
-import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IQuad, IPointerPoint, computeQuadBetweenTwoRectangles } from "../core/Geometry";
+import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IQuad, IPointerPoint, computeQuadBetweenTwoRectangles, IPoint } from "../core/Geometry";
 import { IBrush } from "./Brush";
 
 export abstract class DryWetCanvas extends InkingCanvas {
@@ -31,7 +31,7 @@ export abstract class DryWetCanvas extends InkingCanvas {
                 let pressureAdjustedTip = getPressureAdjustedTipSize(tipHalfSize, p.pressure);
 
                 if (i === 0) {
-                    this.context.beginPath();
+                    this.beginPath();
                 }
 
                 if (this.brush.tip === "ellipse") {
@@ -68,10 +68,10 @@ export abstract class DryWetCanvas extends InkingCanvas {
                 previousPointPressureAdjustedTip = pressureAdjustedTip;
             }
 
-            this.context.fill();
+            this.fill();
 
             if (this.hasStrokeEnded) {
-                this.context.closePath();
+                this.closePath();
             }
 
             this._pendingPointsStartIndex = this._points.length;
@@ -88,7 +88,7 @@ export abstract class DryWetCanvas extends InkingCanvas {
     }
 
     protected internalEndStroke(p: IPointerPoint) {
-        this.addPoint(p);
+        this._points.push(p);
     }
 }
 
@@ -114,6 +114,6 @@ export class WetCanvas extends DryWetCanvas {
         // under it. The caveat is that mix-blend-mode and globalCompositeOperation do not darken the exact same way.
         // The end result is that when a stroke is "dried", i.e. moved from the wet canvas to the dry canvas, darkened
         // portions will look darker than when being drawn on the wet canvas.
-        this.context.canvas.style.mixBlendMode = this.brush.blendMode === "normal" ? "normal" : "darken";
+        this.canvas.style.mixBlendMode = this.brush.blendMode === "normal" ? "normal" : "darken";
     }    
 }

@@ -60,6 +60,15 @@ window.onload = () => {
     setupButton("btnBlue", () => { inkingManager.strokeBrush.color = { r: 0, g: 105, b: 175, a: 1 } });
 
     setupButton("btnClear", () => { inkingManager.clear() });
+
+    setupButton("btnOffset", () => { inkingManager.offset = { x: -100, y: -100 }});
+
+    setupButton("btnZoomOut", () => {
+        if (inkingManager.scale > 0.1) {
+            inkingManager.scale -= 0.1;
+        }
+    });
+    setupButton("btnZoomIn", () => { inkingManager.scale += 0.1; });
 }
 
 start().catch((error) => console.error(error));

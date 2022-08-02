@@ -4,6 +4,10 @@ import { DefaultStrokeBrush, IBrush } from "./Brush";
 
 export abstract class InkingCanvas {
     private _context: CanvasRenderingContext2D;
+    private _strokeStarted: boolean = false;
+    private _brush!: IBrush;
+    private _offset: Readonly<IPoint> = { x: 0, y: 0 };
+    private _scale: number = 1;
 
     private _internalRenderCallback = () => {
         this.internalRender();
@@ -13,8 +17,14 @@ export abstract class InkingCanvas {
         }
     }
 
-    private _strokeStarted: boolean = false;
-    private _brush!: IBrush;
+    protected transformPoint(p: IPoint): IPointerPoint
+    protected transformPoint(p: IPointerPoint): IPointerPoint {
+        return {
+            x: (p.x + this.offset.x) * this._scale,
+            y: (p.y + this.offset.y) * this._scale,
+            pressure: p.pressure ?? 1
+        };
+    }
 
     protected abstract internalRender(): void;
     protected abstract internalBeginStroke(p: IPointerPoint): void;
@@ -23,6 +33,10 @@ export abstract class InkingCanvas {
 
     protected rendersAsynchronously(): boolean {
         return true;
+    }
+
+    protected get context(): CanvasRenderingContext2D {
+        return this._context;
     }
 
     constructor(parentElement?: HTMLElement) {
@@ -52,6 +66,14 @@ export abstract class InkingCanvas {
         this.setBrush(DefaultStrokeBrush);
     }
 
+    removeFromDOM() {
+        const parentElement = this.canvas.parentElement;
+
+        if (parentElement) {
+            parentElement.removeChild(this.canvas as HTMLElement);
+        }
+    }
+
     resize(width: number, height: number) {
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
@@ -59,21 +81,21 @@ export abstract class InkingCanvas {
         this.canvas.width = width * window.devicePixelRatio;
         this.canvas.height = height * window.devicePixelRatio;
 
-        this.context.scale(window.devicePixelRatio, window.devicePixelRatio);        
+        this._context.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
 
     clear() {
-        this.context.save();
+        this._context.save();
 
         // Reset transform to identity to clear the whole canvas
-        this.context.setTransform(1, 0, 0, 1, 0, 0);
-        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this._context.setTransform(1, 0, 0, 1, 0, 0);
+        this._context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
-        this.context.restore();
+        this._context.restore();
     }
 
     copy(source: InkingCanvas) {
-        this.context.drawImage(source.canvas, 0, 0);
+        this._context.drawImage(source.canvas, 0, 0);
     }
 
     beginStroke(p: IPointerPoint) {
@@ -117,13 +139,39 @@ export abstract class InkingCanvas {
         }
     }
 
-    renderCircle(point: IPoint, radius: number): void {
-        this.context.arc(
-            point.x,
-            point.y,
-            radius,
+    renderCircle(center: IPoint, radius: number): void {
+        const transformedCenter = this.transformPoint(center);
+
+        this._context.arc(
+            transformedCenter.x,
+            transformedCenter.y,
+            radius * this._scale,
             0,
             TWO_PI);
+    }
+
+    beginPath() {
+        this._context.beginPath();
+    }
+
+    closePath() {
+        this._context.closePath();
+    }
+
+    fill() {
+        this._context.fill();
+    }
+
+    moveTo(x: number, y: number) {
+        const transformedPoint = this.transformPoint({ x, y });
+
+        this._context.moveTo(transformedPoint.x, transformedPoint.y);
+    }
+
+    lineTo(x: number, y: number) {
+        const transformedPoint = this.transformPoint({ x, y });
+
+        this._context.lineTo(transformedPoint.x, transformedPoint.y);
     }
 
     renderRectangle(center: IPoint, halfWidth: number, halfHeight: number): void {
@@ -132,42 +180,38 @@ export abstract class InkingCanvas {
         const top: number = center.y - halfHeight;
         const bottom: number = center.y + halfHeight;
 
-        this.context.moveTo(left, top);
-        this.context.lineTo(right, top);
-        this.context.lineTo(right, bottom);
-        this.context.lineTo(left, bottom);
-        this.context.lineTo(left, top);
+        this.moveTo(left, top);
+        this.lineTo(right, top);
+        this.lineTo(right, bottom);
+        this.lineTo(left, bottom);
+        this.lineTo(left, top);
     }
 
     renderQuad(quad: IQuad): void {
-        this.context.moveTo(quad.p1.x, quad.p1.y);
-        this.context.lineTo(quad.p2.x, quad.p2.y);
-        this.context.lineTo(quad.p3.x, quad.p3.y);
-        this.context.lineTo(quad.p4.x, quad.p4.y);
-        this.context.lineTo(quad.p1.x, quad.p1.y);
+        this.moveTo(quad.p1.x, quad.p1.y);
+        this.lineTo(quad.p2.x, quad.p2.y);
+        this.lineTo(quad.p3.x, quad.p3.y);
+        this.lineTo(quad.p4.x, quad.p4.y);
+        this.lineTo(quad.p1.x, quad.p1.y);
     }
 
     enablePointerEvents(): void {
-        this.context.canvas.style.pointerEvents = 'auto';
+        this._context.canvas.style.pointerEvents = 'auto';
     }
 
     disablePointerEvents(): void {
-        this.context.canvas.style.pointerEvents = 'none';
+        this._context.canvas.style.pointerEvents = 'none';
     }
 
     setBrush(value: IBrush) {
         this._brush = value;
 
-        this.context.strokeStyle = colorToCssColor(this._brush.color);
-        this.context.fillStyle = colorToCssColor(this._brush.color);
-    }
-
-    get context(): CanvasRenderingContext2D {
-        return this._context;
+        this._context.strokeStyle = colorToCssColor(this._brush.color);
+        this._context.fillStyle = colorToCssColor(this._brush.color);
     }
 
     get canvas(): HTMLCanvasElement {
-        return this.context.canvas;
+        return this._context.canvas;
     }
 
     get hasStrokeEnded(): boolean {
@@ -176,5 +220,25 @@ export abstract class InkingCanvas {
 
     get brush(): IBrush {
         return this._brush;
+    }
+
+    get offset(): Readonly<IPoint> {
+        return this._offset;
+    }
+
+    set offset(value: IPoint) {
+        if (this._offset != value) {
+            this._offset = { ...value };
+        }
+    }
+
+    get scale(): number {
+        return this._scale;
+    }
+
+    set scale(value: number) {
+        if (this._scale !== value && value > 0) {
+            this._scale = value;
+        }
     }
 }

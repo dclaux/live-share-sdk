@@ -1,8 +1,11 @@
 import { IPointerPoint } from "../core/Geometry";
 
 export abstract class InputFilter {
-    abstract reset(startPoint: IPointerPoint): void;
     abstract filterPoint(p: IPointerPoint): IPointerPoint;
+
+    reset(startPoint: IPointerPoint): void {
+        // Do nothing in base implementation
+    }
 }
 
 export class InputFilterCollection {

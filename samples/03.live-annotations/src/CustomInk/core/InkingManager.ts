@@ -3,7 +3,7 @@ import { InkingCanvas } from "../canvas/InkingCanvas";
 import { DryCanvas, WetCanvas } from "../canvas/DryWetCanvas";
 import { LaserPointerCanvas } from "../canvas/LaserPointerCanvas";
 import { IPoint, IPointerPoint, makeRectangleFromPoint, Stroke, IStroke, IStrokeCreationOptions } from "./Geometry";
-import { InputFilterCollection } from "../input/InputFilter";
+import { InputFilter, InputFilterCollection } from "../input/InputFilter";
 import { JitterFilter } from "../input/JitterFilter";
 import { getCoalescedEvents, pointerEventToPoint } from "./Utils";
 import { InputProvider } from "../input/InputProvider";
@@ -125,18 +125,28 @@ export class InkingManager extends EventEmitter {
         }
 
         cancel() {
-            const parentElement = this._canvas.context.canvas.parentElement;
+            this._canvas.removeFromDOM();
+        }
+    }
 
-            if (parentElement) {
-                parentElement.removeChild(this._canvas.context.canvas as HTMLElement);
-            }
+    private static CoordinateTransformn = class extends InputFilter {
+        constructor(private _owner: InkingManager) {
+            super();
+        }
+    
+        filterPoint(p: IPointerPoint): IPointerPoint {
+            return {
+                x: (p.x - this._owner.offset.x) / this._owner.scale,
+                y: (p.y - this._owner.offset.y) / this._owner.scale,
+                pressure: p.pressure
+            };
         }
     }
 
     private readonly _host: HTMLElement;
     private readonly _wetCanvasPoolHost: HTMLElement;
     private readonly _dryCanvas: InkingCanvas;
-    private readonly _inputFilters: InputFilterCollection = new InputFilterCollection(new JitterFilter());
+    private readonly _inputFilters: InputFilterCollection;
 
     private _tool: InkingTool = InkingTool.Stroke;
     private _activePointerId?: number;
@@ -149,6 +159,8 @@ export class InkingManager extends EventEmitter {
     private _changeLog: ChangeLog = new ChangeLog();
     private _isUpdating: boolean = false;
     private _hostResizeObserver: ResizeObserver;
+    private _offset: Readonly<IPoint> = { x: 0, y: 0 };
+    private _scale: number = 1;
 
     private onHostResized = (entries: ResizeObserverEntry[], observer: ResizeObserver) => {
         console.log("Host resized");
@@ -168,6 +180,9 @@ export class InkingManager extends EventEmitter {
 
     private reRender() {
         this._dryCanvas.clear();
+
+        this._dryCanvas.offset = this._offset;
+        this._dryCanvas.scale = this._scale;
 
         this._strokes.forEach(
             (stroke: IStroke) => {
@@ -224,7 +239,7 @@ export class InkingManager extends EventEmitter {
             this._activePointerId = e.pointerId;
 
             try {
-                this._dryCanvas.context.canvas.setPointerCapture(e.pointerId);
+                this._dryCanvas.canvas.setPointerCapture(e.pointerId);
             }
             catch {
                 // Ignore
@@ -494,6 +509,10 @@ export class InkingManager extends EventEmitter {
     constructor(host: HTMLElement) {
         super();
 
+        this._inputFilters = new InputFilterCollection(
+            new JitterFilter(),
+            new InkingManager.CoordinateTransformn(this));
+
         this._host = host;
 
         this._dryCanvas = new DryCanvas(this._host);
@@ -504,7 +523,7 @@ export class InkingManager extends EventEmitter {
 
         this._host.appendChild(this._wetCanvasPoolHost);
 
-        this._inputProvider = new PointerInputProvider(this._dryCanvas.context.canvas);
+        this._inputProvider = new PointerInputProvider(this._dryCanvas.canvas);
 
         this._hostResizeObserver = new ResizeObserver(this.onHostResized);
         this._hostResizeObserver.observe(this._host);
@@ -549,6 +568,8 @@ export class InkingManager extends EventEmitter {
     public beginWetStroke(tool: StrokeBasedTool, startPoint: IPointerPoint, options?: IStrokeCreationOptions): IWetStroke {
         const canvas = tool === InkingTool.LaserPointer ? new LaserPointerCanvas(this._wetCanvasPoolHost) : new WetCanvas(this._wetCanvasPoolHost);
         canvas.resize(this._host.clientWidth, this._host.clientHeight);
+        canvas.offset = this._offset;
+        canvas.scale = this.scale;
 
         const stroke = new InkingManager.WetStroke(
             this,
@@ -612,6 +633,30 @@ export class InkingManager extends EventEmitter {
             }
 
             this._tool = value;
+        }
+    }
+
+    get offset(): Readonly<IPoint> {
+        return this._offset;
+    }
+
+    set offset(value: IPoint) {
+        if (this._offset != value) {
+            this._offset = { ...value };
+
+            this.reRender();
+        }
+    }
+
+    get scale(): number {
+        return this._scale;
+    }
+
+    set scale(value: number) {
+        if (this._scale !== value && value > 0) {
+            this._scale = value;
+
+            this.reRender();
         }
     }
 }
