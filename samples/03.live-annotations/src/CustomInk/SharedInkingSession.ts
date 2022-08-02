@@ -2,15 +2,18 @@ import { DataObject, DataObjectFactory } from '@fluidframework/aqueduct';
 import { IFluidHandle } from '@fluidframework/core-interfaces';
 import { IValueChanged, SharedMap } from '@fluidframework/map';
 import { ISequencedDocumentMessage } from '@fluidframework/protocol-definitions';
-import { IInboundSignalMessage } from '@fluidframework/runtime-definitions';
-import { AddPointEvent, BeginStrokeEvent, ClearEvent, EndStrokeEvent, IAddPointEventArgs, IBeginStrokeEventArgs, InkingManager, IWetStroke, StrokesAddedEvent, StrokesRemovedEvent } from './core/InkingManager';
-import { IPointerPoint, IStroke, Stroke } from './core/Geometry';
+import { AddPointEvent, BeginStrokeEvent, ClearEvent, EndStrokeEvent, IAddPointEventArgs, IBeginStrokeEventArgs, InkingManager, IWetStroke, StrokeBasedTool, StrokesAddedEvent, StrokesRemovedEvent } from './core/InkingManager';
+import { IStroke, Stroke } from './core/Geometry';
+import { EphemeralEventScope, EphemeralEventTarget, IEphemeralEvent, UserMeetingRole } from '@microsoft/live-share';
 
-export enum Signals {
-    BeginWetStroke = "BeginWetStroke",
-    AddWetStrokePoint = "AddWetStrokePoint",
-    EndWetStroke = "EndWetStroke"
+enum StrokeEventNames {
+    BeginWetStroke = "BeginWetStroke2",
+    AddWetStrokePoint = "AddWetStrokePoint2",
+    EndWetStroke = "EndWetStroke2"
 }
+
+type IBeginWetStrokeEvent = IEphemeralEvent & IBeginStrokeEventArgs;
+type IAddWetStrokePointEvent = IEphemeralEvent & IAddPointEventArgs;
 
 export class SharedInkingSession extends DataObject {
     public static readonly TypeName = `@microsoft/shared-inking-session`;
@@ -25,7 +28,11 @@ export class SharedInkingSession extends DataObject {
     private _processingIncomingChanges = false;
     private _dryInkMap!: SharedMap;
     private _wetStrokes: Map<string, IWetStroke> = new Map<string, IWetStroke>();
-
+    private _beginWetStrokeEventTarget!: EphemeralEventTarget<IBeginWetStrokeEvent>;
+    private _addWetStrokePointEventTarget!: EphemeralEventTarget<IAddWetStrokePointEvent>;
+    private _endWetStrokeEventTarget!: EphemeralEventTarget<IAddWetStrokePointEvent>;
+    private _allowedRoles: UserMeetingRole[] = [ UserMeetingRole.guest, UserMeetingRole.attendee, UserMeetingRole.organizer, UserMeetingRole.presenter ];
+    
     protected async initializingFirstTime(): Promise<void> {
         this._dryInkMap = SharedMap.create(this.runtime, 'dryInk');
         this.root.set('dryInk', this._dryInkMap.handle);
@@ -43,74 +50,83 @@ export class SharedInkingSession extends DataObject {
     }
 
     private setupWetInkProcessing(): void {
-        // Setup outgoing changes.
+        // Setup outgoing events
         if (this._inkingManager) {
             this._inkingManager.on(
                 BeginStrokeEvent,
                 (eventArgs: IBeginStrokeEventArgs) => {
-                    this.runtime.submitSignal(Signals.BeginWetStroke, eventArgs);
+                    this._beginWetStrokeEventTarget.sendEvent(
+                        {
+                            name: StrokeEventNames.BeginWetStroke,
+                            ...eventArgs
+                        });
                 });
             this._inkingManager.on(
                 AddPointEvent,
                 (eventArgs: IAddPointEventArgs) => {
-                    this.runtime.submitSignal(Signals.AddWetStrokePoint, eventArgs);
+                    this._addWetStrokePointEventTarget.sendEvent(
+                        {
+                            name: StrokeEventNames.AddWetStrokePoint,
+                            ...eventArgs
+                        });
                 });
             this._inkingManager.on(
                 EndStrokeEvent,
                 (eventArgs: IAddPointEventArgs) => {
-                    this.runtime.submitSignal(Signals.EndWetStroke, eventArgs);
+                    this._endWetStrokeEventTarget.sendEvent(
+                        {
+                            name: StrokeEventNames.EndWetStroke,
+                            ...eventArgs
+                        });
                 });
         }
-    }
 
-    private setupFluidSignalsProcessing(): void {
-        this.runtime.on(
-            "signal",
-            (message: IInboundSignalMessage, local: boolean) => {
-                if (local) {
-                    return;
-                }
+        // Setup incoming events
+        const scope = new EphemeralEventScope(this.runtime, [ UserMeetingRole.presenter ]);
 
-                if (message.type === Signals.BeginWetStroke) {
-                    const eventArgs: IBeginStrokeEventArgs = message.content as IBeginStrokeEventArgs;
+        this._beginWetStrokeEventTarget = new EphemeralEventTarget(
+            scope,
+            StrokeEventNames.BeginWetStroke,
+            (evt: IBeginWetStrokeEvent, local: boolean) => {
+                if (!local && this._inkingManager) {
+                    const stroke = this._inkingManager.beginWetStroke(
+                        evt.tool,
+                        evt.startPoint,
+                        {
+                            id: evt.strokeId,
+                            brush: evt.brush
+                        });
+        
+                    this._wetStrokes.set(evt.strokeId, stroke);
+                }      
+            });
 
-                    if (eventArgs !== undefined && this._inkingManager) {
-                        const stroke = this._inkingManager.beginWetStroke(
-                            eventArgs.tool,
-                            eventArgs.startPoint,
-                            {
-                                id: eventArgs.strokeId,
-                                brush: eventArgs.brush
-                            });
-                        stroke.brush = eventArgs.brush;
-
-                        this._wetStrokes.set(eventArgs.strokeId, stroke);
+        this._addWetStrokePointEventTarget = new EphemeralEventTarget(
+            scope,
+            StrokeEventNames.AddWetStrokePoint,
+            (evt: IAddWetStrokePointEvent, local: boolean) => {
+                if (!local) {
+                    const stroke = this._wetStrokes.get(evt.strokeId);
+        
+                    if (stroke) {
+                        stroke.addPoint(evt.point);
                     }
-                }
-                else if (message.type === Signals.AddWetStrokePoint) {
-                    const eventArgs: IAddPointEventArgs = message.content as IAddPointEventArgs;
+                }        
+            });
 
-                    if (eventArgs !== undefined && this._inkingManager) {
-                        const stroke = this._wetStrokes.get(eventArgs.strokeId);
-
-                        if (stroke) {
-                            stroke.addPoint(eventArgs.point);
-                        }
+        this._endWetStrokeEventTarget = new EphemeralEventTarget(
+            scope,
+            StrokeEventNames.EndWetStroke,
+            (evt: IAddWetStrokePointEvent, local: boolean) => {
+                if (!local) {
+                    const stroke = this._wetStrokes.get(evt.strokeId);
+        
+                    if (stroke) {
+                        stroke.end(evt.point);
+        
+                        this._wetStrokes.delete(evt.strokeId);
                     }
-                }
-                else if (message.type === Signals.EndWetStroke) {
-                    const eventArgs: IAddPointEventArgs = message.content as IAddPointEventArgs;
-
-                    if (eventArgs !== undefined && this._inkingManager) {
-                        const stroke = this._wetStrokes.get(eventArgs.strokeId);
-
-                        if (stroke) {
-                            stroke.end(eventArgs.point);
-
-                            this._wetStrokes.delete(eventArgs.strokeId);
-                        }
-                    }
-                }
+                }        
             });
     }
 
@@ -203,8 +219,17 @@ export class SharedInkingSession extends DataObject {
 
         this.setupDryInkProcessing();
         this.setupWetInkProcessing();
-        this.setupFluidSignalsProcessing();
 
         return this._inkingManager;
+    }
+
+    get allowedRoles(): UserMeetingRole[] {
+        return this._allowedRoles;
+    }
+
+    set allowedRoles(value: UserMeetingRole[]) {
+        this._allowedRoles = value;
+
+        this.setupWetInkProcessing();
     }
 }

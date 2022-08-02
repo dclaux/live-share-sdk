@@ -3,11 +3,9 @@
  * Licensed under the MIT License.
  */
 
-import { TeamsFluidClient } from "@microsoft/live-share";
+import { TeamsFluidClient, UserMeetingRole } from "@microsoft/live-share";
 import { LOCAL_MODE_TENANT_ID } from "@fluidframework/azure-client";
 import { InsecureTokenProvider } from "@fluidframework/test-client-utils";
-// import { WInkSharedInkingSession } from "./WInk/WInkSharedInkingSession";
-// import { InkingManager } from "./WInk/InkingManager";
 import { SharedInkingSession } from "./CustomInk/SharedInkingSession";
 import { InkingManager, InkingTool } from "./CustomInk/core/InkingManager";
 
@@ -34,8 +32,15 @@ async function start() {
     const inkingHost = document.getElementById("inkingHost");
 
     if (inkingHost) {
-        inkingManager = (container.initialObjects.inkingSession as SharedInkingSession).synchronize(inkingHost);
+        const inkingSession = container.initialObjects.inkingSession as SharedInkingSession;
+
+        inkingManager = inkingSession.synchronize(inkingHost);
         inkingManager.activate();
+
+        /*
+        // Set which roles can draw on the canvas. By default, all roles are allowed
+        inkingSession.allowedRoles = [ UserMeetingRole.presenter ];
+        */
     }
 }
 
