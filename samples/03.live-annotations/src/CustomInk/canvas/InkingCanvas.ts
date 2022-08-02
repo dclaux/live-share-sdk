@@ -1,6 +1,8 @@
-import { TWO_PI, IPointerPoint, IQuad, IPoint, IStroke } from "../core/Geometry";
+import { TWO_PI, IPointerPoint, IQuad, IPoint, IStroke, viewportToScreen } from "../core/Geometry";
 import { colorToCssColor } from "../core/Utils";
 import { DefaultStrokeBrush, IBrush } from "./Brush";
+
+export type CanvasReferencePoint = "topLeft" | "center";
 
 export abstract class InkingCanvas {
     private _context: CanvasRenderingContext2D;
@@ -17,12 +19,18 @@ export abstract class InkingCanvas {
         }
     }
 
-    protected transformPoint(p: IPoint): IPointerPoint
-    protected transformPoint(p: IPointerPoint): IPointerPoint {
+    protected viewportToScreen(p: IPoint): IPointerPoint
+    protected viewportToScreen(p: IPointerPoint): IPointerPoint {
         return {
-            x: (p.x + this.offset.x) * this._scale,
-            y: (p.y + this.offset.y) * this._scale,
-            pressure: p.pressure ?? 1
+            ...viewportToScreen(
+                p,
+                this.referencePoint === "center"
+                    ? { x: this.canvas.clientWidth / 2, y: this.canvas.clientHeight / 2 }
+                    : { x: 0, y: 0 },
+                this.offset,
+                this.scale
+            ),
+            pressure: p.pressure
         };
     }
 
@@ -38,6 +46,8 @@ export abstract class InkingCanvas {
     protected get context(): CanvasRenderingContext2D {
         return this._context;
     }
+
+    referencePoint: CanvasReferencePoint = "center";
 
     constructor(parentElement?: HTMLElement) {
         const canvas = document.createElement("canvas");
@@ -140,7 +150,7 @@ export abstract class InkingCanvas {
     }
 
     renderCircle(center: IPoint, radius: number): void {
-        const transformedCenter = this.transformPoint(center);
+        const transformedCenter = this.viewportToScreen(center);
 
         this._context.arc(
             transformedCenter.x,
@@ -163,13 +173,13 @@ export abstract class InkingCanvas {
     }
 
     moveTo(x: number, y: number) {
-        const transformedPoint = this.transformPoint({ x, y });
+        const transformedPoint = this.viewportToScreen({ x, y });
 
         this._context.moveTo(transformedPoint.x, transformedPoint.y);
     }
 
     lineTo(x: number, y: number) {
-        const transformedPoint = this.transformPoint({ x, y });
+        const transformedPoint = this.viewportToScreen({ x, y });
 
         this._context.lineTo(transformedPoint.x, transformedPoint.y);
     }
@@ -227,9 +237,7 @@ export abstract class InkingCanvas {
     }
 
     set offset(value: IPoint) {
-        if (this._offset != value) {
-            this._offset = { ...value };
-        }
+        this._offset = { ...value };
     }
 
     get scale(): number {
@@ -237,7 +245,7 @@ export abstract class InkingCanvas {
     }
 
     set scale(value: number) {
-        if (this._scale !== value && value > 0) {
+        if (value > 0) {
             this._scale = value;
         }
     }

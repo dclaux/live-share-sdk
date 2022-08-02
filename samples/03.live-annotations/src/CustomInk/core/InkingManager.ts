@@ -1,8 +1,8 @@
 import { EventEmitter } from "events";
-import { InkingCanvas } from "../canvas/InkingCanvas";
+import { CanvasReferencePoint, InkingCanvas } from "../canvas/InkingCanvas";
 import { DryCanvas, WetCanvas } from "../canvas/DryWetCanvas";
 import { LaserPointerCanvas } from "../canvas/LaserPointerCanvas";
-import { IPoint, IPointerPoint, makeRectangleFromPoint, Stroke, IStroke, IStrokeCreationOptions } from "./Geometry";
+import { IPoint, IPointerPoint, makeRectangleFromPoint, Stroke, IStroke, IStrokeCreationOptions, screenToViewport, viewportToScreen } from "./Geometry";
 import { InputFilter, InputFilterCollection } from "../input/InputFilter";
 import { JitterFilter } from "../input/JitterFilter";
 import { getCoalescedEvents, pointerEventToPoint } from "./Utils";
@@ -129,15 +129,14 @@ export class InkingManager extends EventEmitter {
         }
     }
 
-    private static CoordinateTransformn = class extends InputFilter {
+    private static ScreenToViewportCoordinateTransform = class extends InputFilter {
         constructor(private _owner: InkingManager) {
             super();
         }
     
         filterPoint(p: IPointerPoint): IPointerPoint {
             return {
-                x: (p.x - this._owner.offset.x) / this._owner.scale,
-                y: (p.y - this._owner.offset.y) / this._owner.scale,
+                ...this._owner.screenToViewport(p),
                 pressure: p.pressure
             };
         }
@@ -159,6 +158,7 @@ export class InkingManager extends EventEmitter {
     private _changeLog: ChangeLog = new ChangeLog();
     private _isUpdating: boolean = false;
     private _hostResizeObserver: ResizeObserver;
+    private _referencePoint: CanvasReferencePoint = "center";
     private _offset: Readonly<IPoint> = { x: 0, y: 0 };
     private _scale: number = 1;
 
@@ -396,7 +396,7 @@ export class InkingManager extends EventEmitter {
 
     private internalErase(p: IPoint): ChangeLog {
         const result = new ChangeLog();
-        const eraserRect = makeRectangleFromPoint(p, 10, 10);
+        const eraserRect = makeRectangleFromPoint(p, this.eraserSize, this.eraserSize);
 
         this._strokes.forEach(
             (stroke: IStroke) => {
@@ -421,8 +421,8 @@ export class InkingManager extends EventEmitter {
     }
 
     private internalPointErase(p: IPoint): ChangeLog {
-        const eraserRect = makeRectangleFromPoint(p, 20, 20);
         const result = new ChangeLog();
+        const eraserRect = makeRectangleFromPoint(p, this.eraserSize, this.eraserSize);
 
         this._strokes.forEach(
             (stroke: IStroke) => {
@@ -506,12 +506,14 @@ export class InkingManager extends EventEmitter {
     public readonly highlighterBrush: Brush = new Brush(DefaultHighlighterBrush);
     public readonly laserPointerBrush: Brush = new Brush(DefaultLaserPointerBrush);
 
+    public eraserSize: number = 10;
+
     constructor(host: HTMLElement) {
         super();
 
         this._inputFilters = new InputFilterCollection(
             new JitterFilter(),
-            new InkingManager.CoordinateTransformn(this));
+            new InkingManager.ScreenToViewportCoordinateTransform(this));
 
         this._host = host;
 
@@ -567,8 +569,8 @@ export class InkingManager extends EventEmitter {
 
     public beginWetStroke(tool: StrokeBasedTool, startPoint: IPointerPoint, options?: IStrokeCreationOptions): IWetStroke {
         const canvas = tool === InkingTool.LaserPointer ? new LaserPointerCanvas(this._wetCanvasPoolHost) : new WetCanvas(this._wetCanvasPoolHost);
-        canvas.resize(this._host.clientWidth, this._host.clientHeight);
-        canvas.offset = this._offset;
+        canvas.resize(this.viewportWidth, this.viewportHeight);
+        canvas.offset = this.offset;
         canvas.scale = this.scale;
 
         const stroke = new InkingManager.WetStroke(
@@ -622,6 +624,34 @@ export class InkingManager extends EventEmitter {
         }
     }
 
+    public screenToViewport(p: IPoint): IPoint {
+        return screenToViewport(
+            p,
+            this.referencePoint === "center"
+                ? { x: this.viewportWidth / 2, y: this.viewportHeight / 2 }
+                : { x: 0, y: 0 },
+            this.offset,
+            this.scale);
+    }
+
+    public viewportToScreen(p: IPoint): IPoint {
+        return viewportToScreen(
+            p,
+            this.referencePoint === "center"
+                ? { x: this.viewportWidth / 2, y: this.viewportHeight / 2 }
+                : { x: 0, y: 0 },
+            this.offset,
+            this.scale);
+    }
+
+    get viewportWidth(): number {
+        return this._host.clientWidth;
+    }
+
+    get viewportHeight(): number {
+        return this._host.clientHeight;
+    }
+
     get tool(): InkingTool {
         return this._tool;
     }
@@ -633,6 +663,18 @@ export class InkingManager extends EventEmitter {
             }
 
             this._tool = value;
+        }
+    }
+
+    get referencePoint(): CanvasReferencePoint {
+        return this._referencePoint;
+    }
+
+    set referencePoint(value: CanvasReferencePoint) {
+        if (this._referencePoint !== value) {
+            this._referencePoint = value;
+
+            this.reRender();
         }
     }
 

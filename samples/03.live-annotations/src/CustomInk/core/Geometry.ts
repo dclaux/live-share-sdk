@@ -14,12 +14,12 @@ export interface IPointerPoint extends IPoint {
     pressure: number
 }
 
-export interface ISegment {
+interface ISegment {
     from: IPoint,
     to: IPoint
 }
 
-export interface IRect {
+interface IRect {
     left: number;
     top: number;
     right: number;
@@ -30,7 +30,7 @@ export function getPressureAdjustedTipSize(baseRadius: number, pressure: number)
     return baseRadius * (pressure * 1.5 + 0.25);
 }
 
-export function unionRect(rect: IRect, point: IPoint): void {
+function unionRect(rect: IRect, point: IPoint): void {
     rect.left = Math.min(rect.left, point.x);
     rect.right = Math.max(rect.right, point.x);
     rect.top = Math.min(rect.top, point.y);
@@ -156,18 +156,18 @@ export function makeRectangleFromPoint(p: IPoint, width: number, height: number)
     };
 }
 
-export function isInRange(n: number, r1: number, r2: number): boolean {
+function isInRange(n: number, r1: number, r2: number): boolean {
     const adjustedMin = Math.min(r1, r2) - EPSILON;
     const adjustedMax = Math.max(r1, r2) + EPSILON;
 
     return n >= adjustedMin && n <= adjustedMax;
 }
 
-export function isPointInsideRectangle(p: IPoint, r: IRect): boolean {
+function isPointInsideRectangle(p: IPoint, r: IRect): boolean {
     return isInRange(p.x, r.left, r.right) && isInRange(p.y, r.top, r.bottom);
 }
 
-export function isRectangleInsideRectangle(r: IRect, containingRectangle: IRect): boolean {
+function isRectangleInsideRectangle(r: IRect, containingRectangle: IRect): boolean {
     const topLeft = { x: r.left, y: r.top };
     const topRight = { x: r.right, y: r.top };
     const bottomLeft = { x: r.left, y: r.bottom };
@@ -179,7 +179,7 @@ export function isRectangleInsideRectangle(r: IRect, containingRectangle: IRect)
         isPointInsideRectangle(bottomRight, containingRectangle);
 }
 
-export function doRectanglesOverlap(r1: IRect, r2: IRect): boolean {
+function doRectanglesOverlap(r1: IRect, r2: IRect): boolean {
     const test = (r1: IRect, r2: IRect) => {
         const topLeft = { x: r1.left, y: r1.top };
         const topRight = { x: r1.right, y: r1.top };
@@ -196,7 +196,7 @@ export function doRectanglesOverlap(r1: IRect, r2: IRect): boolean {
 }
 
 // From https://gamedev.stackexchange.com/questions/111100/intersection-of-a-line-segment-and-a-rectangle
-export function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | undefined {
+function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | undefined {
     const a1 = s1.to.y - s1.from.y;
     const b1 = s1.from.x - s1.to.x;
     const a2 = s2.to.y - s2.from.y;
@@ -226,7 +226,7 @@ export function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | un
 }
 
 // From https://gamedev.stackexchange.com/questions/111100/intersection-of-a-line-segment-and-a-rectangle
-export function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPoint[] {
+function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPoint[] {
     const result: IPoint[] = [];
 
     const testSegment = (otherSegment: ISegment) => {
@@ -276,8 +276,22 @@ export function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPo
     return result;
 }
 
-export function getDistanceBetweenPoints(p1: IPoint, p2: IPoint): number {
+function getDistanceBetweenPoints(p1: IPoint, p2: IPoint): number {
     return Math.hypot(p2.x - p1.x, p2.y - p1.y);
+}
+
+export function screenToViewport(p: IPoint, viewportReferencePoint: IPoint, viewportOffset: IPoint, scale: number): IPoint {
+    return {
+        x: (p.x - viewportOffset.x - viewportReferencePoint.x) / scale,
+        y: (p.y - viewportOffset.y - viewportReferencePoint.y) / scale
+    };
+}
+
+export function viewportToScreen(p: IPoint, viewportReferencePoint: IPoint, viewportOffset: IPoint, scale: number): IPoint {
+    return {
+        x: p.x * scale + viewportReferencePoint.x + viewportOffset.x,
+        y: p.y * scale + viewportReferencePoint.y + viewportOffset.y
+    };
 }
 
 export interface IStroke extends Iterable<IPointerPoint> {
