@@ -45,7 +45,6 @@ class LiveStroke implements IStrokeData {
             return;
         }
 
-        const tolerance = 0.08;
         const startLength = this._points.length;
 
         let index = 0;
@@ -55,7 +54,7 @@ class LiveStroke implements IStrokeData {
             const p2 = this._points[index + 1];
             const p3 = this._points[index + 2];
 
-            if (getDistanceBetweenPoints(p1, p2) + getDistanceBetweenPoints(p2, p3) - getDistanceBetweenPoints(p1, p3) < tolerance) {
+            if (getDistanceBetweenPoints(p1, p2) + getDistanceBetweenPoints(p2, p3) - getDistanceBetweenPoints(p1, p3) < SharedInkingSession.wetStrokePointSimplificationThreshold) {
                 this._points.splice(index + 1, 1);
             }
             else {
@@ -97,6 +96,7 @@ class LiveStroke implements IStrokeData {
 
 export class SharedInkingSession extends DataObject {
     public static wetStrokeEventsStreamDelay = 60;
+    public static wetStrokePointSimplificationThreshold = 0.08;
 
     public static readonly TypeName = `@microsoft/shared-inking-session`;
     public static readonly factory = new DataObjectFactory(
