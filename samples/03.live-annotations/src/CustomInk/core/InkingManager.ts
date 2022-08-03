@@ -97,6 +97,8 @@ class ChangeLog {
 }
 
 export class InkingManager extends EventEmitter {
+    public static asyncRenderDelay = 30;
+    
     private static WetStroke = class extends Stroke implements IWetStroke {
         constructor(
             private _owner: InkingManager,
@@ -206,7 +208,7 @@ export class InkingManager extends EventEmitter {
     }
 
     private scheduleReRender() {
-        window.requestAnimationFrame(() => { this.reRender(); });
+        window.setTimeout(() => { this.reRender(); }, InkingManager.asyncRenderDelay);
     }
 
     private flushChangeLog() {

@@ -93,7 +93,7 @@ window.onload = () => {
                 const eventsImprovement = (100 - (100 / telemetryWithoutOptimization.totalEvents * telemetryWithOptimization.totalEvents)).toFixed(2) + "% improvement";
                 const pointsImprovement = (100 - (100 / telemetryWithoutOptimization.totalPoints * telemetryWithOptimization.totalPoints)).toFixed(2) + "% improvement";
 
-                telemetryDiv.innerText = `Total events: ${telemetryWithOptimization.totalEvents} / ${telemetryWithoutOptimization.totalEvents} (${eventsImprovement}) - Total points: ${telemetryWithOptimization.totalPoints} / ${telemetryWithoutOptimization.totalPoints} (${pointsImprovement})`;
+                telemetryDiv.innerText = `Events: ${telemetryWithOptimization.totalEvents} / ${telemetryWithoutOptimization.totalEvents} (${eventsImprovement}) - Points: ${telemetryWithOptimization.totalPoints} / ${telemetryWithoutOptimization.totalPoints} (${pointsImprovement})`;
             }
         },
         500);

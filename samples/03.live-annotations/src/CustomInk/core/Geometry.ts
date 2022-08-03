@@ -324,6 +324,7 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
     private _points: IPointerPoint[];
     private _iteratorCounter = 0;
     private _id: string;
+    private _boundingRect?: IRect;
 
     private addPoint(p: IPointerPoint): boolean {
         let lastPoint: IPointerPoint | undefined = undefined;
@@ -336,6 +337,10 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
             this._points.push(p);
 
             return true;
+        }
+
+        if (this._boundingRect && !isPointInsideRectangle(p, this._boundingRect)) {
+            this._boundingRect = undefined;
         }
 
         return false;
@@ -404,18 +409,22 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
     }
 
     getBoundingRect(): IRect {
-        const result = {
-            left: Number.MAX_VALUE,
-            top: Number.MAX_VALUE,
-            right: -Number.MAX_VALUE,
-            bottom: -Number.MAX_VALUE
-        };
+        if (this._boundingRect === undefined) {
+            const result = {
+                left: Number.MAX_VALUE,
+                top: Number.MAX_VALUE,
+                right: -Number.MAX_VALUE,
+                bottom: -Number.MAX_VALUE
+            };
 
-        for (const p of this) {
-            unionRect(result, p);
+            for (const p of this) {
+                unionRect(result, p);
+            }
+
+            this._boundingRect = result;
         }
 
-        return result;
+        return this._boundingRect;
     }
 
     getPointAt(index: number): IPointerPoint {

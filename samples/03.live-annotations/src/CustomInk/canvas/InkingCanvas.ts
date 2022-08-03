@@ -5,6 +5,8 @@ import { DefaultStrokeBrush, IBrush } from "./Brush";
 export type CanvasReferencePoint = "topLeft" | "center";
 
 export abstract class InkingCanvas {
+    public static asyncRenderInterval = 30;
+
     private _context: CanvasRenderingContext2D;
     private _strokeStarted: boolean = false;
     private _brush!: IBrush;
@@ -17,7 +19,7 @@ export abstract class InkingCanvas {
         this.internalRender();
 
         if (this._strokeStarted) {
-            window.requestAnimationFrame(this._internalRenderCallback);
+            window.setTimeout(this._internalRenderCallback, InkingCanvas.asyncRenderInterval);
         }
     }
 
@@ -135,7 +137,7 @@ export abstract class InkingCanvas {
         this.internalBeginStroke(p);
 
         if (this.rendersAsynchronously()) {
-            window.requestAnimationFrame(this._internalRenderCallback);
+            window.setTimeout(this._internalRenderCallback, InkingCanvas.asyncRenderInterval);
         }
         else {
             this.internalRender();

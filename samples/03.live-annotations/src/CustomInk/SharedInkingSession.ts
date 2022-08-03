@@ -7,6 +7,7 @@ import { IStroke, Stroke, IPointerPoint, IStrokeData, getDistanceBetweenPoints }
 import { EphemeralEventScope, EphemeralEventTarget, IEphemeralEvent, UserMeetingRole } from '@microsoft/live-share';
 import { IBrush } from './canvas/Brush';
 
+/* TODO: Remove this basic telemetry stuff */
 export interface ITelemetry {
     totalEvents: number;
     totalPoints: number;
@@ -23,9 +24,9 @@ export var telemetryWithOptimization: ITelemetry = {
 }
 
 enum StrokeEventNames {
-    BeginWetStroke = "BeginWetStroke2",
-    AddWetStrokePoint = "AddWetStrokePoint2",
-    EndWetStroke = "EndWetStroke2"
+    BeginWetStroke = "BeginWetStroke",
+    AddWetStrokePoints = "AddWetStrokePoint",
+    EndWetStroke = "EndWetStroke"
 }
 
 type IBeginWetStrokeEvent = IEphemeralEvent & IBeginStrokeEventArgs;
@@ -37,6 +38,7 @@ class LiveStroke implements IStrokeData {
     private _processTimeout?: number;
 
     private process() {
+        // TODO: Remove this
         telemetryWithoutOptimization.totalPoints += this._points.length;
 
         if (this.tool === InkingTool.LaserPointer) {
@@ -61,6 +63,7 @@ class LiveStroke implements IStrokeData {
             }
         }
 
+        // TODO: Remove this
         telemetryWithOptimization.totalPoints += this._points.length;
     }
 
@@ -77,7 +80,7 @@ class LiveStroke implements IStrokeData {
         this._points = [];
     }
 
-    scheduleProcessing(onProcessedCallback: (sender: LiveStroke) => void) {
+    scheduleProcessing(onProcessedCallback: (stroke: LiveStroke) => void) {
         if (this._processTimeout === undefined) {
             this._processTimeout = window.setTimeout(
                 () => {
@@ -87,12 +90,14 @@ class LiveStroke implements IStrokeData {
 
                     onProcessedCallback(this);
                 },
-                60);
+                SharedInkingSession.wetStrokeEventsStreamDelay);
         }
     }
 }
 
 export class SharedInkingSession extends DataObject {
+    public static wetStrokeEventsStreamDelay = 60;
+
     public static readonly TypeName = `@microsoft/shared-inking-session`;
     public static readonly factory = new DataObjectFactory(
         SharedInkingSession.TypeName,
@@ -133,7 +138,7 @@ export class SharedInkingSession extends DataObject {
 
         this._addWetStrokePointEventTarget.sendEvent(
             {
-                name: StrokeEventNames.AddWetStrokePoint,
+                name: StrokeEventNames.AddWetStrokePoints,
                 strokeId: liveStroke.id,
                 points: liveStroke.points
             });
@@ -157,6 +162,7 @@ export class SharedInkingSession extends DataObject {
 
                     this._pendingLiveStrokes.set(liveStroke.id, liveStroke);
 
+                    // TODO: Remove this
                     telemetryWithoutOptimization.totalEvents++;
                     telemetryWithOptimization.totalEvents++;
 
@@ -177,6 +183,7 @@ export class SharedInkingSession extends DataObject {
                         liveStroke.scheduleProcessing(this.liveStrokeProcessed);
                     }
 
+                    // TODO: Remove this
                     telemetryWithoutOptimization.totalEvents += eventArgs.points.length;
                 });
             this._inkingManager.on(
@@ -184,6 +191,7 @@ export class SharedInkingSession extends DataObject {
                 (eventArgs: IAddPointsEventArgs) => {
                     this._pendingLiveStrokes.delete(eventArgs.strokeId);
 
+                    // TODO: Remove this
                     telemetryWithoutOptimization.totalEvents++;
                     telemetryWithOptimization.totalEvents++;
 
@@ -217,7 +225,7 @@ export class SharedInkingSession extends DataObject {
 
         this._addWetStrokePointEventTarget = new EphemeralEventTarget(
             scope,
-            StrokeEventNames.AddWetStrokePoint,
+            StrokeEventNames.AddWetStrokePoints,
             (evt: IAddWetStrokePointsEvent, local: boolean) => {
                 if (!local) {
                     const stroke = this._wetStrokes.get(evt.strokeId);
