@@ -33,12 +33,18 @@ export interface IBeginStrokeEventArgs {
 
 export const BeginStrokeEvent: symbol = Symbol();
 
-export interface IAddPointEventArgs {
+export interface IAddPointsEventArgs {
     strokeId: string;
-    point: IPointerPoint
+    points: IPointerPoint[];
 }
 
 export const AddPointEvent: symbol = Symbol();
+
+export interface IEndStrokeEventArgs {
+    strokeId: string;
+    endPoint: IPointerPoint;
+}
+
 export const EndStrokeEvent: symbol = Symbol();
 
 export interface IWetStroke extends IStroke {
@@ -100,16 +106,21 @@ export class InkingManager extends EventEmitter {
             super(options);
         }
 
-        addPoint(p: IPointerPoint): boolean {
-            const result = super.addPoint(p);
+        addPoints(...points: IPointerPoint[]): boolean {
+            const result = super.addPoints(...points);
 
             if (result) {
-                if (this.length === 1) {
+                let startIndex = 0;
+
+                if (this.length === points.length) {
                     this._canvas.setBrush(this.brush);
-                    this._canvas.beginStroke(p);
+                    this._canvas.beginStroke(points[0]);
+
+                    startIndex = 1;
                 }
-                else {
-                    this._canvas.addPoint(p);
+
+                for (let i = startIndex; i < points.length; i++) {
+                    this._canvas.addPoint(points[i]);
                 }
             }
 
@@ -237,6 +248,17 @@ export class InkingManager extends EventEmitter {
         this.processPendingPointErasePoints();
     }
 
+    private getBrushForTool(tool: StrokeBasedTool): IBrush {
+        switch (tool) {
+            case InkingTool.LaserPointer:
+                return this.laserPointerBrush;
+            case InkingTool.Highlighter:
+                return this.highlighterBrush;
+            default:
+                return this.strokeBrush;
+        }
+    }
+
     private onPointerDown: (e: PointerEvent) => void = (e: PointerEvent): void => {
         if (this._activePointerId === undefined) {
             this._activePointerId = e.pointerId;
@@ -256,31 +278,13 @@ export class InkingManager extends EventEmitter {
 
             switch (this._tool) {
                 case InkingTool.Stroke:
-                    this._currentStroke = this.beginWetStroke(
-                        InkingTool.Stroke,
-                        filteredPoint,
-                        {
-                            brush: this.strokeBrush
-                        });
-
-                    this.internalBeginStroke(this._currentStroke);
-                    break;
                 case InkingTool.LaserPointer:
-                    this._currentStroke = this.beginWetStroke(
-                        InkingTool.LaserPointer,
-                        filteredPoint,
-                        {
-                            brush: this.laserPointerBrush
-                        });
-
-                    this.internalBeginStroke(this._currentStroke);
-                    break;
                 case InkingTool.Highlighter:
                     this._currentStroke = this.beginWetStroke(
-                        InkingTool.Highlighter,
+                        this._tool,
                         filteredPoint,
                         {
-                            brush: this.highlighterBrush
+                            brush: this.getBrushForTool(this._tool)
                         });
 
                     this.internalBeginStroke(this._currentStroke);
@@ -318,7 +322,7 @@ export class InkingManager extends EventEmitter {
                         case InkingTool.LaserPointer:
                         case InkingTool.Highlighter:
                             if (this._currentStroke) {
-                                this._currentStroke.addPoint(filteredPoint);
+                                this._currentStroke.addPoints(filteredPoint);
 
                                 this.internalAddPoint(this._currentStroke.id, filteredPoint);
                             }
@@ -491,18 +495,18 @@ export class InkingManager extends EventEmitter {
     }
 
     protected internalAddPoint(strokeId: string, point: IPointerPoint) {
-        const eventArgs: IAddPointEventArgs = {
+        const eventArgs: IAddPointsEventArgs = {
             strokeId,
-            point
+            points: [ point ]
         }
 
         this.emit(AddPointEvent, eventArgs);
     }
 
     protected internalEndStroke(strokeId: string, point: IPointerPoint) {
-        const eventArgs: IAddPointEventArgs = {
+        const eventArgs: IEndStrokeEventArgs = {
             strokeId,
-            point
+            endPoint: point
         }
 
         this.emit(EndStrokeEvent, eventArgs);
@@ -585,7 +589,7 @@ export class InkingManager extends EventEmitter {
             tool,
             options);
 
-        stroke.addPoint(startPoint);
+        stroke.addPoints(startPoint);
 
         return stroke;
     }

@@ -3,22 +3,10 @@ import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IPointerPoint
 
 export class LaserPointerCanvas extends InkingCanvas {
     private static readonly MaxPoints = 20;
-    private static readonly TimeToRemoveTrailingPoints = 200;
+    private static readonly TimeToRemoveTrailingPoints = 800;
 
     private _points: IPointerPoint[] = [];
-    private _removeTralingPoints = () => {
-        if (this._points.length > 1) {
-            this._points.splice(0, 1);
-        }
-
-        if (!this.hasStrokeEnded) {
-            this.scheduleTrailingPointRemoval();
-        }
-    };
-
-    private scheduleTrailingPointRemoval() {
-        setTimeout(this._removeTralingPoints, LaserPointerCanvas.TimeToRemoveTrailingPoints / LaserPointerCanvas.MaxPoints);
-    }
+    private _trailingPointsRemovalInterval!: number;
 
     protected internalRender() {
         this.clear();
@@ -64,7 +52,13 @@ export class LaserPointerCanvas extends InkingCanvas {
     protected internalBeginStroke(p: IPointerPoint) {
         this._points = [p];
 
-        this.scheduleTrailingPointRemoval();
+        this._trailingPointsRemovalInterval = window.setInterval(
+            () => {
+                if (this._points.length > 1) {
+                    this._points.splice(0, 1);
+                }        
+            },
+            LaserPointerCanvas.TimeToRemoveTrailingPoints / LaserPointerCanvas.MaxPoints);
     }
 
     protected internalAddPoint(p: IPointerPoint) {
@@ -76,6 +70,8 @@ export class LaserPointerCanvas extends InkingCanvas {
     }
 
     protected internalEndStroke(p: IPointerPoint) {
+        window.clearInterval(this._trailingPointsRemovalInterval);
+
         this.internalAddPoint(p);
     }
 }

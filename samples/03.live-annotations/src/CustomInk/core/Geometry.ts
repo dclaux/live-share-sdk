@@ -276,7 +276,7 @@ function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPoint[] {
     return result;
 }
 
-function getDistanceBetweenPoints(p1: IPoint, p2: IPoint): number {
+export function getDistanceBetweenPoints(p1: IPoint, p2: IPoint): number {
     return Math.hypot(p2.x - p1.x, p2.y - p1.y);
 }
 
@@ -294,8 +294,13 @@ export function viewportToScreen(p: IPoint, viewportReferencePoint: IPoint, view
     };
 }
 
-export interface IStroke extends Iterable<IPointerPoint> {
-    addPoint(p: IPointerPoint): boolean;
+export interface IStrokeData {
+    id: string;
+    brush: IBrush;
+    points: IPointerPoint[];
+}
+export interface IStroke {
+    addPoints(...points: IPointerPoint[]): boolean;
     intersectsWithRectangle(rectangle: IRect): boolean;
     getIntersectionPoints(segment: ISegment): IPoint[];
     getPointAt(index: number): IPointerPoint;
@@ -308,24 +313,33 @@ export interface IStroke extends Iterable<IPointerPoint> {
     get length(): number;
 }
 
-interface IStrokeData {
-    id: string;
-    brush: IBrush;
-    points: IPointerPoint[];
-}
-
 export interface IStrokeCreationOptions {
     id?: string;
     brush?: IBrush;
     points?: IPointerPoint[]
 }
 
-export class Stroke implements IStroke {
+export class Stroke implements IStroke, Iterable<IPointerPoint> {
     private _brush: IBrush = {...DefaultStrokeBrush};
     private _points: IPointerPoint[];
     private _iteratorCounter = 0;
     private _id: string;
 
+    private addPoint(p: IPointerPoint): boolean {
+        let lastPoint: IPointerPoint | undefined = undefined;
+
+        if (this._points.length !== 0) {
+            lastPoint = this._points[this._points.length - 1];
+        }
+
+        if (lastPoint === undefined || lastPoint.x !== p.x || lastPoint.y !== p.y) {
+            this._points.push(p);
+
+            return true;
+        }
+
+        return false;
+    }
 
     constructor(options?: IStrokeCreationOptions) {
         const effectiveOptions: IStrokeCreationOptions = {
@@ -340,20 +354,16 @@ export class Stroke implements IStroke {
         this.brush = {...(effectiveOptions.brush ?? DefaultStrokeBrush)};
     }
 
-    addPoint(p: IPointerPoint): boolean {
-        let lastPoint: IPointerPoint | undefined = undefined;
+    addPoints(...points: IPointerPoint[]): boolean {
+        let pointsAdded = false;
 
-        if (this._points.length !== 0) {
-            lastPoint = this._points[this._points.length - 1];
+        for (let point of points) {
+            if (this.addPoint(point)) {
+                pointsAdded = true;
+            }
         }
 
-        if (lastPoint === undefined || lastPoint.x !== p.x || lastPoint.y !== p.y) {
-            this._points.push(p);
-
-            return true;
-        }
-
-        return false;
+        return pointsAdded;
     }
 
     intersectsWithRectangle(rectangle: IRect): boolean {
