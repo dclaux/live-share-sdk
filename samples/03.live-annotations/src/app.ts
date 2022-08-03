@@ -44,6 +44,13 @@ async function start() {
     }
 }
 
+function offsetBy(x: number, y: number) {
+    inkingManager.offset = {
+        x: inkingManager.offset.x + x,
+        y: inkingManager.offset.y + y
+    }
+}
+
 window.onload = () => {
     const setupButton = (buttonId: string, onClick: () => void) => {
         const button = document.getElementById(buttonId);
@@ -66,7 +73,10 @@ window.onload = () => {
 
     setupButton("btnClear", () => { inkingManager.clear() });
 
-    setupButton("btnOffset", () => { inkingManager.offset = { x: -100, y: -100 }});
+    setupButton("btnOffsetLeft", () => { offsetBy(-10, 0); });
+    setupButton("btnOffsetUp", () => { offsetBy(0, -10); });
+    setupButton("btnOffsetRight", () => { offsetBy(10, 0); });
+    setupButton("btnOffsetDown", () => { offsetBy(0, 10); });
 
     setupButton("btnZoomOut", () => {
         if (inkingManager.scale > 0.1) {

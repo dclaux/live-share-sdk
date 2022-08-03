@@ -10,6 +10,8 @@ export abstract class InkingCanvas {
     private _brush!: IBrush;
     private _offset: Readonly<IPoint> = { x: 0, y: 0 };
     private _scale: number = 1;
+    private _clientWidth?: number;
+    private _clientHeight?: number;
 
     private _internalRenderCallback = () => {
         this.internalRender();
@@ -19,13 +21,29 @@ export abstract class InkingCanvas {
         }
     }
 
+    private getClientWidth(): number {
+        if (!this._clientWidth) {
+            this._clientWidth = this.canvas.clientWidth;
+        }
+
+        return this._clientWidth;
+    }
+
+    private getClientHeight(): number {
+        if (!this._clientHeight) {
+            this._clientHeight = this.canvas.clientHeight;
+        }
+
+        return this._clientHeight;
+    }
+
     protected viewportToScreen(p: IPoint): IPointerPoint
     protected viewportToScreen(p: IPointerPoint): IPointerPoint {
         return {
             ...viewportToScreen(
                 p,
                 this.referencePoint === "center"
-                    ? { x: this.canvas.clientWidth / 2, y: this.canvas.clientHeight / 2 }
+                    ? { x: this.getClientWidth() / 2, y: this.getClientHeight() / 2 }
                     : { x: 0, y: 0 },
                 this.offset,
                 this.scale
@@ -92,6 +110,9 @@ export abstract class InkingCanvas {
         this.canvas.height = height * window.devicePixelRatio;
 
         this._context.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        this._clientWidth = undefined;
+        this._clientHeight = undefined;
     }
 
     clear() {

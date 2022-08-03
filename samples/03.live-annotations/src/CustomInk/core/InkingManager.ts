@@ -161,9 +161,12 @@ export class InkingManager extends EventEmitter {
     private _referencePoint: CanvasReferencePoint = "center";
     private _offset: Readonly<IPoint> = { x: 0, y: 0 };
     private _scale: number = 1;
+    private _viewportWidth?: number;
+    private _viewportHeight?: number;
 
     private onHostResized = (entries: ResizeObserverEntry[], observer: ResizeObserver) => {
-        console.log("Host resized");
+        this._viewportWidth = undefined;
+        this._viewportHeight = undefined;
 
         if (entries.length >= 1) {
             const entry = entries[0];
@@ -286,6 +289,9 @@ export class InkingManager extends EventEmitter {
                     this.erase(filteredPoint);
                     break;
                 case InkingTool.PointEraser:
+                    // TODO: insert additional eraser points between the previous
+                    // one and the new one to mitigate wide gaps between erased areas
+                    // when the pointer moves fast
                     this._pendingPointErasePoints.push(filteredPoint);
 
                     this.schedulePointEraseProcessing();
@@ -645,11 +651,19 @@ export class InkingManager extends EventEmitter {
     }
 
     get viewportWidth(): number {
-        return this._host.clientWidth;
+        if (!this._viewportWidth) {
+            this._viewportWidth = this._host.clientWidth;
+        }
+
+        return this._viewportWidth;
     }
 
     get viewportHeight(): number {
-        return this._host.clientHeight;
+        if (!this._viewportHeight) {
+            this._viewportHeight = this._host.clientHeight;
+        }
+
+        return this._viewportHeight;
     }
 
     get tool(): InkingTool {

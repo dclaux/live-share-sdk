@@ -31,7 +31,7 @@ export const DefaultStrokeBrush: IBrush = {
 };
 
 export const DefaultHighlighterBrush: IBrush = {
-    color: Colors.Black,
+    color: { r: 255, g: 252, b: 0, a: 1 },
     tip: "rectangle",
     tipSize: 10,
     blendMode: "darken"
