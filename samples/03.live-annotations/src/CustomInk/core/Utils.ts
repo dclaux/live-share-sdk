@@ -38,6 +38,25 @@ export function colorToCssColor(color: IColor): string {
     return `rgba(${color.r},${color.g},${color.b},${color.a})`;
 }
 
+export function brightenColor(color: IColor, percent: number): IColor {
+    if (percent < 0 || percent > 100) {
+        return color;
+    }
+
+    const brightenChannel = (channel: number) => {
+        const delta = 255 - channel;
+
+        return channel + delta / 100 * percent;
+    }
+
+    return {
+        r: brightenChannel(color.r),
+        g: brightenChannel(color.g),
+        b: brightenChannel(color.b),
+        a: color.a
+    }
+}
+
 export function isInRange(n: number, r1: number, r2: number): boolean {
     const adjustedMin = Math.min(r1, r2) - EPSILON;
     const adjustedMax = Math.max(r1, r2) + EPSILON;

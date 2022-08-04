@@ -1,5 +1,7 @@
 import { InkingCanvas } from "./InkingCanvas";
 import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IPointerPoint, IQuad } from "../core/Geometry";
+import { IBrush } from "./Brush";
+import { brightenColor, colorToCssColor } from "../core/Utils";
 
 export class LaserPointerCanvas extends InkingCanvas {
     private static readonly MaxPoints = 20;
@@ -8,13 +10,13 @@ export class LaserPointerCanvas extends InkingCanvas {
     private _points: IPointerPoint[] = [];
     private _trailingPointsRemovalInterval!: number;
 
-    protected internalRender() {
-        this.clear();
+    private internalRenderWithBrush(brush: IBrush) {
+        this.context.fillStyle = colorToCssColor(brush.color);
 
         let previousPoint: IPointerPoint | undefined = undefined;
-        let radius = this.brush.tipSize / 2;
+        let radius = brush.tipSize / 2;
 
-        const radiusStep = (radius - 1) / this._points.length;
+        const radiusStep = (radius - (radius / 3)) / this._points.length;
 
         const quad: IQuad = {
             p1: { x: 0, y: 0 },
@@ -46,7 +48,22 @@ export class LaserPointerCanvas extends InkingCanvas {
             previousPoint = p;
         }
 
+        this.context.closePath();
         this.context.fill();
+    }
+
+    protected internalRender() {
+        this.clear();
+
+        this.internalRenderWithBrush(this.brush);
+
+        const innerBrush: IBrush = {
+            ...this.brush,
+            color: brightenColor(this.brush.color, 50),
+            tipSize: this.brush.tipSize - this.brush.tipSize / 2
+        };
+
+        this.internalRenderWithBrush(innerBrush);
     }
 
     protected internalBeginStroke(p: IPointerPoint) {
