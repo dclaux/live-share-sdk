@@ -98,6 +98,7 @@ class ChangeLog {
 
 export class InkingManager extends EventEmitter {
     public static asyncRenderDelay = 30;
+    public static pointEraserProcessingInterval = 60;
     
     private static WetStroke = class extends Stroke implements IWetStroke {
         constructor(
@@ -166,7 +167,8 @@ export class InkingManager extends EventEmitter {
     private _currentStroke?: IWetStroke;
     private _strokes: Map<string, IStroke> = new Map<string, IStroke>();
     private _previousPoint?: IPointerPoint;
-    private _pointEraseProcessingInterval: number = 0;
+    private _reRenderTimeout?: number;
+    private _pointEraseProcessingInterval?: number;
     private _pendingPointErasePoints: IPoint[] = [];
     private _changeLog: ChangeLog = new ChangeLog();
     private _isUpdating: boolean = false;
@@ -208,7 +210,17 @@ export class InkingManager extends EventEmitter {
     }
 
     private scheduleReRender() {
-        window.setTimeout(() => { this.reRender(); }, InkingManager.asyncRenderDelay);
+        if (this._reRenderTimeout !== undefined) {
+            window.clearTimeout(this._reRenderTimeout);
+        }
+
+        this._reRenderTimeout = window.setTimeout(
+            () => {
+                this.reRender();
+
+                this._reRenderTimeout = undefined;
+            },
+            InkingManager.asyncRenderDelay);
     }
 
     private flushChangeLog() {
@@ -229,22 +241,20 @@ export class InkingManager extends EventEmitter {
     }
 
     private schedulePointEraseProcessing() {
-        const processingIntervalMs: number = 40;
-        
-        if (this._pointEraseProcessingInterval === 0) {
+        if (this._pointEraseProcessingInterval === undefined) {
             this._pointEraseProcessingInterval = window.setInterval(
                 () => {
                     this.processPendingPointErasePoints();
                 },
-                processingIntervalMs);
+                InkingManager.pointEraserProcessingInterval);
         }
     }
 
     private stopPointEraseProcessing() {
-        if (this._pointEraseProcessingInterval !== 0) {
+        if (this._pointEraseProcessingInterval !== undefined) {
             clearInterval(this._pointEraseProcessingInterval);
 
-            this._pointEraseProcessingInterval = 0;
+            this._pointEraseProcessingInterval = undefined;
         }
 
         this.processPendingPointErasePoints();

@@ -119,6 +119,7 @@ export function computeQuadBetweenTwoRectangles(
     const top2: number = center2.y - halfHeight2;
     const right2: number = center2.x + halfWidth2;
     const bottom2: number = center2.y + halfHeight2;
+    
     if (
         (left2 >= left1 && top2 >= top1 && right2 <= right1 && bottom2 <= bottom1) ||
         (left1 >= left2 && top1 >= top2 && right1 <= right2 && bottom1 <= bottom2)
@@ -195,6 +196,53 @@ function doRectanglesOverlap(r1: IRect, r2: IRect): boolean {
     return test(r1, r2) || test(r2, r1);
 }
 
+function segmentsMayIntersect(segment1: ISegment, segment2: ISegment): boolean {
+    const s1: ISegment = {
+        from: {
+            x: Math.min(segment1.from.x, segment1.to.x),
+            y: Math.min(segment1.from.y, segment1.to.y)
+        },
+        to: {
+            x: Math.max(segment1.from.x, segment1.to.x),
+            y: Math.max(segment1.from.y, segment1.to.y)
+        }
+    };
+
+    const s2: ISegment = {
+        from: {
+            x: Math.min(segment2.from.x, segment2.to.x),
+            y: Math.min(segment2.from.y, segment2.to.y)
+        },
+        to: {
+            x: Math.max(segment2.from.x, segment2.to.x),
+            y: Math.max(segment2.from.y, segment2.to.y)
+        }
+    }
+
+    return !(s1.to.x < s2.from.x || s1.from.x > s2.to.x || s1.to.y < s2.from.y || s1.from.y > s2.to.y);
+}
+
+function getRectangleSegments(rect: IRect): ISegment[] {
+    return [
+        { from: { x: rect.left, y: rect.top}, to: { x: rect.right, y: rect.top} },
+        { from: { x: rect.right, y: rect.top}, to: { x: rect.right, y: rect.bottom} },
+        { from: { x: rect.right, y: rect.bottom}, to: { x: rect.left, y: rect.bottom} },
+        { from: { x: rect.left, y: rect.bottom}, to: { x: rect.left, y: rect.top} }
+    ];
+}
+
+function segmentMayIntersectWithRectangle(segment: ISegment, rect: IRect): boolean {
+    const rectSegments = getRectangleSegments(rect);
+
+    for (let s of rectSegments) {
+        if (segmentsMayIntersect(segment, s)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // From https://gamedev.stackexchange.com/questions/111100/intersection-of-a-line-segment-and-a-rectangle
 function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | undefined {
     const a1 = s1.to.y - s1.from.y;
@@ -225,11 +273,11 @@ function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | undefined
     return undefined;
 }
 
-// From https://gamedev.stackexchange.com/questions/111100/intersection-of-a-line-segment-and-a-rectangle
 function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPoint[] {
     const result: IPoint[] = [];
+    const rectSegments = getRectangleSegments(r);
 
-    const testSegment = (otherSegment: ISegment) => {
+    for (let otherSegment of rectSegments) {
         const intersection = getSegmentsIntersection(s, otherSegment);
 
         if (intersection) {
@@ -248,30 +296,6 @@ function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPoint[] {
             }
         }
     }
-
-    testSegment(
-        {
-            from: { x: r.left, y: r.top },
-            to: { x: r.right, y: r.top }
-        });
-
-    testSegment(
-        {
-            from: { x: r.right, y: r.top },
-            to: { x: r.right, y: r.bottom }
-        });
-
-    testSegment(
-        {
-            from: { x: r.right, y: r.bottom },
-            to: { x: r.left, y: r.bottom }
-        });
-
-    testSegment(
-        {
-            from: { x: r.left, y: r.bottom },
-            to: { x: r.left, y: r.top }
-        });
 
     return result;
 }
@@ -299,6 +323,7 @@ export interface IStrokeData {
     brush: IBrush;
     points: IPointerPoint[];
 }
+
 export interface IStroke {
     addPoints(...points: IPointerPoint[]): boolean;
     intersectsWithRectangle(rectangle: IRect): boolean;
@@ -452,45 +477,52 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
 
         for (const p of this) {
             if (previousPoint) {
-                const intersections = getSegmentIntersectionsWithRectangle({ from: previousPoint, to: p }, eraserRect);
+                const segment: ISegment = { from: previousPoint, to: p };
+                
+                if (segmentMayIntersectWithRectangle(segment, eraserRect)) {
+                    const intersections = getSegmentIntersectionsWithRectangle(segment, eraserRect);
 
-                if (intersections.length === 1) {
-                    // One intersection, we need to cut that segment into two
-                    if (isPointInsideRectangle(previousPoint, eraserRect)) {
-                        currentStroke = new Stroke({ brush: this.brush });
+                    if (intersections.length === 1) {
+                        // One intersection, we need to cut that segment into two
+                        if (isPointInsideRectangle(previousPoint, eraserRect)) {
+                            currentStroke = new Stroke({ brush: this.brush });
 
-                        currentStroke.addPoint({ ...intersections[0], pressure: previousPoint.pressure });
-                        currentStroke.addPoint(p);
+                            currentStroke.addPoint({ ...intersections[0], pressure: previousPoint.pressure });
+                            currentStroke.addPoint(p);
+                        }
+                        else {
+                            currentStroke.addPoint({ ...intersections[0], pressure: p.pressure });
+
+                            generatedStrokes.push(currentStroke);
+
+                            currentStroke = new Stroke({ brush: this.brush });
+                        }
                     }
-                    else {
-                        currentStroke.addPoint({ ...intersections[0], pressure: p.pressure });
+                    else if (intersections.length === 2) {
+                        // Two intersections, we need to cut the part that's inside the eraser rectangle
+                        const d1 = getDistanceBetweenPoints(previousPoint, intersections[0]);
+                        const d2 = getDistanceBetweenPoints(previousPoint, intersections[1]);
+
+                        let [firstIndex, secondIndex] = d1 < d2 ? [0, 1] : [1, 0];
+
+                        currentStroke.addPoint({ ...intersections[firstIndex], pressure: previousPoint.pressure });
 
                         generatedStrokes.push(currentStroke);
 
                         currentStroke = new Stroke({ brush: this.brush });
+                        currentStroke.addPoint({ ...intersections[secondIndex], pressure: previousPoint.pressure });
+                        currentStroke.addPoint(p);
+                    }
+                    else if (!isPointInsideRectangle(previousPoint, eraserRect) && !isPointInsideRectangle(p, eraserRect)) {
+                        // The segment is fully outside the eraser rectangle, we keep it and add it to the current stroke
+                        if (currentStroke.length === 0) {
+                            currentStroke.addPoint(previousPoint);
+                        }
+
+                        currentStroke.addPoint(p);
                     }
                 }
-                else if (intersections.length === 2) {
-                    // Two intersections, we need to cut the part that's inside the eraser rectangle
-                    const d1 = getDistanceBetweenPoints(previousPoint, intersections[0]);
-                    const d2 = getDistanceBetweenPoints(previousPoint, intersections[1]);
-
-                    let [firstIndex, secondIndex] = d1 < d2 ? [0, 1] : [1, 0];
-
-                    currentStroke.addPoint({ ...intersections[firstIndex], pressure: previousPoint.pressure });
-
-                    generatedStrokes.push(currentStroke);
-
-                    currentStroke = new Stroke({ brush: this.brush });
-                    currentStroke.addPoint({ ...intersections[secondIndex], pressure: previousPoint.pressure });
-                    currentStroke.addPoint(p);
-                }
-                else if (!isPointInsideRectangle(previousPoint, eraserRect) && !isPointInsideRectangle(p, eraserRect)) {
-                    // The segment is fully outside the eraser rectangle, we keep it and add it to the current stroke
-                    if (currentStroke.length === 0) {
-                        currentStroke.addPoint(previousPoint);
-                    }
-
+                else {
                     currentStroke.addPoint(p);
                 }
             }
