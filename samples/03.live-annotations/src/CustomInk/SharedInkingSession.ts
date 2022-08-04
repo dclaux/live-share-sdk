@@ -3,7 +3,8 @@ import { IFluidHandle } from '@fluidframework/core-interfaces';
 import { IValueChanged, SharedMap } from '@fluidframework/map';
 import { ISequencedDocumentMessage } from '@fluidframework/protocol-definitions';
 import { AddPointEvent, BeginStrokeEvent, ClearEvent, EndStrokeEvent, IAddPointsEventArgs, IBeginStrokeEventArgs, IEndStrokeEventArgs, InkingManager, InkingTool, IWetStroke, StrokeBasedTool, StrokesAddedEvent, StrokesRemovedEvent } from './core/InkingManager';
-import { IStroke, Stroke, IPointerPoint, IStrokeData, getDistanceBetweenPoints } from './core/Geometry';
+import { IPointerPoint, getDistanceBetweenPoints } from './core/Geometry';
+import { IStroke, Stroke, IStrokeData } from "./core/Stroke";
 import { EphemeralEventScope, EphemeralEventTarget, IEphemeralEvent, UserMeetingRole } from '@microsoft/live-share';
 import { IBrush } from './canvas/Brush';
 

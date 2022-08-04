@@ -1,9 +1,7 @@
-import { generateUniqueId } from "./Utils";
+import { generateUniqueId, isInRange } from "./Utils";
 import { DefaultStrokeBrush, IBrush } from "../canvas/Brush";
 
 export const TWO_PI: number = Math.PI * 2;
-
-const EPSILON = 0.000001;
 
 export interface IPoint {
     x: number,
@@ -14,12 +12,12 @@ export interface IPointerPoint extends IPoint {
     pressure: number
 }
 
-interface ISegment {
+export interface ISegment {
     from: IPoint,
     to: IPoint
 }
 
-interface IRect {
+export interface IRect {
     left: number;
     top: number;
     right: number;
@@ -30,31 +28,12 @@ export function getPressureAdjustedTipSize(baseRadius: number, pressure: number)
     return baseRadius * (pressure * 1.5 + 0.25);
 }
 
-function unionRect(rect: IRect, point: IPoint): void {
+export function unionRect(rect: IRect, point: IPoint): void {
     rect.left = Math.min(rect.left, point.x);
     rect.right = Math.max(rect.right, point.x);
     rect.top = Math.min(rect.top, point.y);
     rect.bottom = Math.max(rect.bottom, point.y);
 }
-
-/*
-export function doSegmentsIntersect(s1: ISegment, s2: ISegment): boolean {
-    const diff1X: number = s1.to.x - s1.from.x;
-    const diff1Y: number = s1.to.y - s1.from.y;
-    const diff2X: number = s2.to.x - s2.from.x;
-    const diff2Y: number = s2.to.y - s2.from.y;
-    const denominator: number = diff1X * diff2Y - diff2X * diff1Y;
-
-    if (denominator === 0) {
-        return false;
-    }
-
-    const line1Offset = (diff2X * (s1.from.y - s2.from.y) - diff2Y * (s1.from.x - s2.from.x)) / denominator;
-    const line2Offset = (diff1X * (s1.from.y - s2.from.y) - diff1Y * (s1.from.x - s2.from.x)) / denominator;
-
-    return line1Offset >= 0 && line1Offset <= 1 && line2Offset >= 0 && line2Offset <= 1;
-}
-*/
 
 export interface IQuad {
     p1: IPoint;
@@ -157,18 +136,11 @@ export function makeRectangleFromPoint(p: IPoint, width: number, height: number)
     };
 }
 
-function isInRange(n: number, r1: number, r2: number): boolean {
-    const adjustedMin = Math.min(r1, r2) - EPSILON;
-    const adjustedMax = Math.max(r1, r2) + EPSILON;
-
-    return n >= adjustedMin && n <= adjustedMax;
-}
-
-function isPointInsideRectangle(p: IPoint, r: IRect): boolean {
+export function isPointInsideRectangle(p: IPoint, r: IRect): boolean {
     return isInRange(p.x, r.left, r.right) && isInRange(p.y, r.top, r.bottom);
 }
 
-function isRectangleInsideRectangle(r: IRect, containingRectangle: IRect): boolean {
+export function isRectangleInsideRectangle(r: IRect, containingRectangle: IRect): boolean {
     const topLeft = { x: r.left, y: r.top };
     const topRight = { x: r.right, y: r.top };
     const bottomLeft = { x: r.left, y: r.bottom };
@@ -180,7 +152,7 @@ function isRectangleInsideRectangle(r: IRect, containingRectangle: IRect): boole
         isPointInsideRectangle(bottomRight, containingRectangle);
 }
 
-function doRectanglesOverlap(r1: IRect, r2: IRect): boolean {
+export function doRectanglesOverlap(r1: IRect, r2: IRect): boolean {
     const test = (r1: IRect, r2: IRect) => {
         const topLeft = { x: r1.left, y: r1.top };
         const topRight = { x: r1.right, y: r1.top };
@@ -196,7 +168,7 @@ function doRectanglesOverlap(r1: IRect, r2: IRect): boolean {
     return test(r1, r2) || test(r2, r1);
 }
 
-function segmentsMayIntersect(segment1: ISegment, segment2: ISegment): boolean {
+export function segmentsMayIntersect(segment1: ISegment, segment2: ISegment): boolean {
     const s1: ISegment = {
         from: {
             x: Math.min(segment1.from.x, segment1.to.x),
@@ -222,7 +194,7 @@ function segmentsMayIntersect(segment1: ISegment, segment2: ISegment): boolean {
     return !(s1.to.x < s2.from.x || s1.from.x > s2.to.x || s1.to.y < s2.from.y || s1.from.y > s2.to.y);
 }
 
-function getRectangleSegments(rect: IRect): ISegment[] {
+export function getRectangleSegments(rect: IRect): ISegment[] {
     return [
         { from: { x: rect.left, y: rect.top}, to: { x: rect.right, y: rect.top} },
         { from: { x: rect.right, y: rect.top}, to: { x: rect.right, y: rect.bottom} },
@@ -231,7 +203,7 @@ function getRectangleSegments(rect: IRect): ISegment[] {
     ];
 }
 
-function segmentMayIntersectWithRectangle(segment: ISegment, rect: IRect): boolean {
+export function segmentMayIntersectWithRectangle(segment: ISegment, rect: IRect): boolean {
     const rectSegments = getRectangleSegments(rect);
 
     for (let s of rectSegments) {
@@ -244,7 +216,7 @@ function segmentMayIntersectWithRectangle(segment: ISegment, rect: IRect): boole
 }
 
 // From https://gamedev.stackexchange.com/questions/111100/intersection-of-a-line-segment-and-a-rectangle
-function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | undefined {
+export function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | undefined {
     const a1 = s1.to.y - s1.from.y;
     const b1 = s1.from.x - s1.to.x;
     const a2 = s2.to.y - s2.from.y;
@@ -273,7 +245,7 @@ function getSegmentsIntersection(s1: ISegment, s2: ISegment): IPoint | undefined
     return undefined;
 }
 
-function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPoint[] {
+export function getSegmentIntersectionsWithRectangle(s: ISegment, r: IRect): IPoint[] {
     const result: IPoint[] = [];
     const rectSegments = getRectangleSegments(r);
 
@@ -316,274 +288,4 @@ export function viewportToScreen(p: IPoint, viewportReferencePoint: IPoint, view
         x: p.x * scale + viewportReferencePoint.x + viewportOffset.x,
         y: p.y * scale + viewportReferencePoint.y + viewportOffset.y
     };
-}
-
-export interface IStrokeData {
-    id: string;
-    brush: IBrush;
-    points: IPointerPoint[];
-}
-
-export interface IStroke {
-    addPoints(...points: IPointerPoint[]): boolean;
-    intersectsWithRectangle(rectangle: IRect): boolean;
-    getIntersectionPoints(segment: ISegment): IPoint[];
-    getPointAt(index: number): IPointerPoint;
-    getBoundingRect(): IRect;
-    pointErase(eraserRect: IRect): IStroke[] | undefined;
-    serialize(): string;
-    deserialize(serializedStroke: string): void;
-    brush: IBrush;
-    get id(): string;
-    get length(): number;
-}
-
-export interface IStrokeCreationOptions {
-    id?: string;
-    brush?: IBrush;
-    points?: IPointerPoint[]
-}
-
-export class Stroke implements IStroke, Iterable<IPointerPoint> {
-    private _brush: IBrush = {...DefaultStrokeBrush};
-    private _points: IPointerPoint[];
-    private _iteratorCounter = 0;
-    private _id: string;
-    private _boundingRect?: IRect;
-
-    private addPoint(p: IPointerPoint): boolean {
-        let lastPoint: IPointerPoint | undefined = undefined;
-
-        if (this._points.length !== 0) {
-            lastPoint = this._points[this._points.length - 1];
-        }
-
-        if (lastPoint === undefined || lastPoint.x !== p.x || lastPoint.y !== p.y) {
-            this._points.push(p);
-
-            return true;
-        }
-
-        if (this._boundingRect && !isPointInsideRectangle(p, this._boundingRect)) {
-            this._boundingRect = undefined;
-        }
-
-        return false;
-    }
-
-    constructor(options?: IStrokeCreationOptions) {
-        const effectiveOptions: IStrokeCreationOptions = {
-            id: options ? options.id : undefined,
-            brush: options ? options.brush : undefined,
-            points: options ? options.points : undefined
-        }
-
-        this._id = effectiveOptions.id ?? generateUniqueId();
-        this._points = effectiveOptions.points ?? [];
-
-        this.brush = {...(effectiveOptions.brush ?? DefaultStrokeBrush)};
-    }
-
-    addPoints(...points: IPointerPoint[]): boolean {
-        let pointsAdded = false;
-
-        for (let point of points) {
-            if (this.addPoint(point)) {
-                pointsAdded = true;
-            }
-        }
-
-        return pointsAdded;
-    }
-
-    intersectsWithRectangle(rectangle: IRect): boolean {
-        let previousPoint: IPointerPoint | undefined = undefined;
-
-        for (const p of this) {
-            if (previousPoint) {
-                const intersections = getSegmentIntersectionsWithRectangle({ from: previousPoint, to: p }, rectangle);
-
-                if (intersections.length > 0) {
-                    return true;
-                }
-            }
-
-            previousPoint = p;
-        }
-
-        return false;
-    }
-
-    getIntersectionPoints(segment: ISegment): IPoint[] {
-        const result: IPoint[] = [];
-        let previousPoint: IPointerPoint | undefined = undefined;
-
-        for (const p of this) {
-            if (previousPoint) {
-                const intersection = getSegmentsIntersection(segment, { from: previousPoint, to: p });
-
-                if (intersection) {
-                    result.push(intersection);
-                }
-            }
-
-            previousPoint = p;
-        }
-
-        return result;
-    }
-
-    getBoundingRect(): IRect {
-        if (this._boundingRect === undefined) {
-            const result = {
-                left: Number.MAX_VALUE,
-                top: Number.MAX_VALUE,
-                right: -Number.MAX_VALUE,
-                bottom: -Number.MAX_VALUE
-            };
-
-            for (const p of this) {
-                unionRect(result, p);
-            }
-
-            this._boundingRect = result;
-        }
-
-        return this._boundingRect;
-    }
-
-    getPointAt(index: number): IPointerPoint {
-        return this._points[index];
-    }
-
-    pointErase(eraserRect: IRect): IStroke[] | undefined {
-        const boundingRect = this.getBoundingRect();
-
-        if (isRectangleInsideRectangle(boundingRect, eraserRect)) {
-            // The whole stroke is inside the eraser, so it needs to be fully deleted
-            return [];
-        }
-
-        if (!doRectanglesOverlap(eraserRect, boundingRect)) {
-            // The eraser is outside the bounding box of the stroke and therefore
-            // there is nothing to erase
-            return undefined;
-        }
-
-        let previousPoint: IPointerPoint | undefined = undefined;
-
-        const generatedStrokes: IStroke[] = [];
-        let currentStroke = new Stroke({ brush: this.brush });
-
-        for (const p of this) {
-            if (previousPoint) {
-                const segment: ISegment = { from: previousPoint, to: p };
-                
-                if (segmentMayIntersectWithRectangle(segment, eraserRect)) {
-                    const intersections = getSegmentIntersectionsWithRectangle(segment, eraserRect);
-
-                    if (intersections.length === 1) {
-                        // One intersection, we need to cut that segment into two
-                        if (isPointInsideRectangle(previousPoint, eraserRect)) {
-                            currentStroke = new Stroke({ brush: this.brush });
-
-                            currentStroke.addPoint({ ...intersections[0], pressure: previousPoint.pressure });
-                            currentStroke.addPoint(p);
-                        }
-                        else {
-                            currentStroke.addPoint({ ...intersections[0], pressure: p.pressure });
-
-                            generatedStrokes.push(currentStroke);
-
-                            currentStroke = new Stroke({ brush: this.brush });
-                        }
-                    }
-                    else if (intersections.length === 2) {
-                        // Two intersections, we need to cut the part that's inside the eraser rectangle
-                        const d1 = getDistanceBetweenPoints(previousPoint, intersections[0]);
-                        const d2 = getDistanceBetweenPoints(previousPoint, intersections[1]);
-
-                        let [firstIndex, secondIndex] = d1 < d2 ? [0, 1] : [1, 0];
-
-                        currentStroke.addPoint({ ...intersections[firstIndex], pressure: previousPoint.pressure });
-
-                        generatedStrokes.push(currentStroke);
-
-                        currentStroke = new Stroke({ brush: this.brush });
-                        currentStroke.addPoint({ ...intersections[secondIndex], pressure: previousPoint.pressure });
-                        currentStroke.addPoint(p);
-                    }
-                    else if (!isPointInsideRectangle(previousPoint, eraserRect) && !isPointInsideRectangle(p, eraserRect)) {
-                        // The segment is fully outside the eraser rectangle, we keep it and add it to the current stroke
-                        if (currentStroke.length === 0) {
-                            currentStroke.addPoint(previousPoint);
-                        }
-
-                        currentStroke.addPoint(p);
-                    }
-                }
-                else {
-                    currentStroke.addPoint(p);
-                }
-            }
-            else {
-                currentStroke.addPoint(p);
-            }
-
-            previousPoint = p;
-        }
-
-        if (currentStroke.length > 1) {
-            generatedStrokes.push(currentStroke);
-        }
-
-        return generatedStrokes;
-    }
-
-    serialize(): string {
-        const data: IStrokeData = {
-            id: this.id,
-            brush: this.brush,
-            points: this._points
-        };
-
-        return JSON.stringify(data);
-    }
-
-    deserialize(serializedStroke: string) {
-        const data: IStrokeData = JSON.parse(serializedStroke) as IStrokeData;
-
-        this._id = data.id;
-        this._brush = data.brush;
-        this._points = data.points;
-    }
-
-    [Symbol.iterator]() {
-        this._iteratorCounter = 0;
-
-        return {
-            next: () => {
-                return {
-                    done: this._iteratorCounter === this._points.length,
-                    value: this._points[this._iteratorCounter++]
-                }
-            }
-        }
-    }
-
-    get id(): string {
-        return this._id;
-    }
-
-    get length(): number {
-        return this._points.length;
-    }
-
-    get brush(): IBrush {
-        return this._brush;
-    }
-
-    set brush(value: IBrush) {
-        this._brush = {...value};
-    }
 }

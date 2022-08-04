@@ -1,4 +1,5 @@
-import { TWO_PI, IPointerPoint, IQuad, IPoint, IStroke, viewportToScreen } from "../core/Geometry";
+import { TWO_PI, IPointerPoint, IQuad, IPoint, viewportToScreen } from "../core/Geometry";
+import { IStroke } from "../core/Stroke";
 import { colorToCssColor } from "../core/Utils";
 import { DefaultStrokeBrush, IBrush } from "./Brush";
 

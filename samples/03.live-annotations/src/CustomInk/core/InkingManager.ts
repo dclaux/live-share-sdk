@@ -2,7 +2,8 @@ import { EventEmitter } from "events";
 import { CanvasReferencePoint, InkingCanvas } from "../canvas/InkingCanvas";
 import { DryCanvas, WetCanvas } from "../canvas/DryWetCanvas";
 import { LaserPointerCanvas } from "../canvas/LaserPointerCanvas";
-import { IPoint, IPointerPoint, makeRectangleFromPoint, Stroke, IStroke, IStrokeCreationOptions, screenToViewport, viewportToScreen } from "./Geometry";
+import { IPoint, IPointerPoint, makeRectangleFromPoint, screenToViewport, viewportToScreen } from "./Geometry";
+import { Stroke, IStroke, IStrokeCreationOptions } from "./Stroke";
 import { InputFilter, InputFilterCollection } from "../input/InputFilter";
 import { JitterFilter } from "../input/JitterFilter";
 import { getCoalescedEvents, pointerEventToPoint } from "./Utils";
@@ -305,9 +306,6 @@ export class InkingManager extends EventEmitter {
                     this.erase(filteredPoint);
                     break;
                 case InkingTool.PointEraser:
-                    // TODO: insert additional eraser points between the previous
-                    // one and the new one to mitigate wide gaps between erased areas
-                    // when the pointer moves fast
                     this._pendingPointErasePoints.push(filteredPoint);
 
                     this.schedulePointEraseProcessing();
@@ -345,6 +343,9 @@ export class InkingManager extends EventEmitter {
 
                             break;
                         case InkingTool.PointEraser:
+                            // TODO: insert additional eraser points between the previous
+                            // one and the new one to mitigate wide gaps between erased areas
+                            // when the pointer moves fast
                             this._pendingPointErasePoints.push(filteredPoint);
 
                             this.schedulePointEraseProcessing();

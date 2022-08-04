@@ -2,6 +2,8 @@ import { v4 as uuid } from "uuid";
 import { IColor } from "../canvas/Brush";
 import { IPointerPoint } from "./Geometry";
 
+const EPSILON = 0.000001;
+
 export function generateUniqueId(): string {
     return uuid();
 }
@@ -34,4 +36,11 @@ export function getCoalescedEvents(event: PointerEvent): PointerEvent[] {
 
 export function colorToCssColor(color: IColor): string {
     return `rgba(${color.r},${color.g},${color.b},${color.a})`;
+}
+
+export function isInRange(n: number, r1: number, r2: number): boolean {
+    const adjustedMin = Math.min(r1, r2) - EPSILON;
+    const adjustedMax = Math.max(r1, r2) + EPSILON;
+
+    return n >= adjustedMin && n <= adjustedMax;
 }
