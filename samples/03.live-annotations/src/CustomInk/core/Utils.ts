@@ -12,7 +12,7 @@ export function pointerEventToPoint(e: PointerEvent): IPointerPoint {
     return {
         x: e.offsetX,
         y: e.offsetY,
-        pressure: e.pressure
+        pressure: e.pressure > 0 ? e.pressure : 0.5
     };
 }
 

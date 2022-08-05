@@ -272,16 +272,24 @@ export class InkingManager extends EventEmitter {
         }
     }
 
-    private onPointerDown: (e: PointerEvent) => void = (e: PointerEvent): void => {
-        if (this._activePointerId === undefined) {
-            this._activePointerId = e.pointerId;
+    private capturePointer(pointerId: number) {
+        if (this._activePointerId !== undefined) {
+            this._dryCanvas.canvas.releasePointerCapture(this._activePointerId);
+        }
 
-            try {
-                this._dryCanvas.canvas.setPointerCapture(e.pointerId);
-            }
-            catch {
-                // Ignore
-            }
+        this._activePointerId = pointerId;
+
+        try {
+            this._dryCanvas.canvas.setPointerCapture(pointerId);
+        }
+        catch {
+            // Ignore
+        }
+    }
+
+    private onPointerDown = (e: PointerEvent): void => {
+        if (this._activePointerId === undefined) {
+            this.capturePointer(e.pointerId);
 
             const p = pointerEventToPoint(e);
 
@@ -291,7 +299,6 @@ export class InkingManager extends EventEmitter {
 
             switch (this._tool) {
                 case InkingTool.Stroke:
-                case InkingTool.LaserPointer:
                 case InkingTool.Highlighter:
                     this._currentStroke = this.beginWetStroke(
                         this._tool,
@@ -301,17 +308,18 @@ export class InkingManager extends EventEmitter {
                         });
 
                     this.internalBeginStroke(this._currentStroke);
+
                     break;
                 case InkingTool.Eraser:
                     this.erase(filteredPoint);
+
                     break;
                 case InkingTool.PointEraser:
                     this._pendingPointErasePoints.push(filteredPoint);
 
                     this.schedulePointEraseProcessing();
+
                     break;
-                default:
-                    throw new Error("Unsupported tool.")
             }
 
             this._previousPoint = filteredPoint;
@@ -321,15 +329,40 @@ export class InkingManager extends EventEmitter {
         }
     };
 
-    private onPointerMove: (e: PointerEvent) => void = (e: PointerEvent): void => {
-        if (this._activePointerId === e.pointerId) {
-            getCoalescedEvents(e).forEach(
-                (e: PointerEvent) => {
-                    const filteredPoint = this._inputFilters.filterPoint(pointerEventToPoint(e));
+    private onPointerMove = (e: PointerEvent): void => {
+        getCoalescedEvents(e).forEach(
+            (evt: PointerEvent) => {
+                const p = pointerEventToPoint(evt);
+
+                if (this._tool === InkingTool.LaserPointer) {
+                    if (this._currentStroke === undefined) {
+                        this._inputFilters.reset(p);
+
+                        const filteredPoint = this._inputFilters.filterPoint(p);
+
+                        this._currentStroke = this.beginWetStroke(
+                            this._tool,
+                            filteredPoint,
+                            {
+                                brush: this.getBrushForTool(this._tool)
+                            });
+
+                        this.internalBeginStroke(this._currentStroke);
+                    }
+                    else {
+                        const filteredPoint = this._inputFilters.filterPoint(p);
+
+                        this._currentStroke.addPoints(filteredPoint);
+
+                        this.internalAddPoint(this._currentStroke.id, filteredPoint);
+                    }
+                }
+
+                if (this._activePointerId === e.pointerId) {
+                    const filteredPoint = this._inputFilters.filterPoint(p);
 
                     switch (this._tool) {
                         case InkingTool.Stroke:
-                        case InkingTool.LaserPointer:
                         case InkingTool.Highlighter:
                             if (this._currentStroke) {
                                 this._currentStroke.addPoints(filteredPoint);
@@ -354,20 +387,19 @@ export class InkingManager extends EventEmitter {
                     }
 
                     this._previousPoint = filteredPoint;
-                });
+                }
+            });
 
-            e.preventDefault();
-            e.stopPropagation();
-        }
+        e.preventDefault();
+        e.stopPropagation();
     };
 
-    private onPointerUp: (e: PointerEvent) => void = (e: PointerEvent): void => {
+    private onPointerUp = (e: PointerEvent): void => {
         if (this._activePointerId === e.pointerId) {
             const filteredPoint = this._inputFilters.filterPoint(pointerEventToPoint(e));
 
             switch (this._tool) {
                 case InkingTool.Stroke:
-                case InkingTool.LaserPointer:
                 case InkingTool.Highlighter:
                     if (this._currentStroke) {
                         this._currentStroke.end(filteredPoint);
@@ -396,6 +428,18 @@ export class InkingManager extends EventEmitter {
             this._activePointerId = undefined;
         }
     };
+
+    private onPointerLeave = (e: PointerEvent): void => {
+        if (this._tool === InkingTool.LaserPointer && this._currentStroke) {
+            const filteredPoint = this._inputFilters.filterPoint(pointerEventToPoint(e));
+
+            this._currentStroke.cancel();
+
+            this.internalEndStroke(this._currentStroke.id, filteredPoint);
+
+            this._currentStroke = undefined;
+        }
+    }
 
     private internalAddStroke(stroke: IStroke) {
         if (this._strokes.has(stroke.id)) {
@@ -529,7 +573,7 @@ export class InkingManager extends EventEmitter {
     public readonly highlighterBrush: Brush = new Brush(DefaultHighlighterBrush);
     public readonly laserPointerBrush: Brush = new Brush(DefaultLaserPointerBrush);
 
-    public eraserSize: number = 10;
+    public eraserSize: number = 20;
 
     constructor(host: HTMLElement) {
         super();
@@ -572,6 +616,7 @@ export class InkingManager extends EventEmitter {
         this._inputProvider.on(InputProvider.PointerDown, this.onPointerDown);
         this._inputProvider.on(InputProvider.PointerMove, this.onPointerMove);
         this._inputProvider.on(InputProvider.PointerUp, this.onPointerUp);
+        this._inputProvider.on(InputProvider.PointerLeave, this.onPointerLeave);
     }
 
     public deactivate(): void {
@@ -580,6 +625,7 @@ export class InkingManager extends EventEmitter {
         this._inputProvider.off(InputProvider.PointerDown, this.onPointerDown);
         this._inputProvider.off(InputProvider.PointerMove, this.onPointerMove);
         this._inputProvider.off(InputProvider.PointerUp, this.onPointerUp);
+        this._inputProvider.off(InputProvider.PointerLeave, this.onPointerLeave);
     }
 
     public clear() {

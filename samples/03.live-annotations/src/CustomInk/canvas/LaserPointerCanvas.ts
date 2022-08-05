@@ -4,11 +4,29 @@ import { IBrush } from "./Brush";
 import { brightenColor, colorToCssColor } from "../core/Utils";
 
 export class LaserPointerCanvas extends InkingCanvas {
-    private static readonly MaxPoints = 20;
-    private static readonly TimeToRemoveTrailingPoints = 800;
+    private static readonly TrailingPointsRemovalInterval = 20;
 
     private _points: IPointerPoint[] = [];
-    private _trailingPointsRemovalInterval!: number;
+    private _trailingPointsRemovalInterval?: number;
+
+    private scheduleTrailingPointsRemoval() {
+        if (this._trailingPointsRemovalInterval === undefined) {
+            this._trailingPointsRemovalInterval = window.setInterval(
+                () => {
+                    if (this._points.length > 1) {
+                        const pointsToRemove = Math.max((this._points.length - 1) / 5, 1);
+
+                        this._points.splice(0, pointsToRemove);
+                    }
+                    else {
+                        window.clearInterval(this._trailingPointsRemovalInterval);
+
+                        this._trailingPointsRemovalInterval = undefined;
+                    }
+                },
+                LaserPointerCanvas.TrailingPointsRemovalInterval);
+        }
+    }
 
     private internalRenderWithBrush(brush: IBrush) {
         this.context.fillStyle = colorToCssColor(brush.color);
@@ -68,26 +86,20 @@ export class LaserPointerCanvas extends InkingCanvas {
 
     protected internalBeginStroke(p: IPointerPoint) {
         this._points = [p];
-
-        this._trailingPointsRemovalInterval = window.setInterval(
-            () => {
-                if (this._points.length > 1) {
-                    this._points.splice(0, 1);
-                }        
-            },
-            LaserPointerCanvas.TimeToRemoveTrailingPoints / LaserPointerCanvas.MaxPoints);
     }
 
     protected internalAddPoint(p: IPointerPoint) {
         this._points.push(p);
 
-        if (this._points.length > LaserPointerCanvas.MaxPoints) {
-            this._points.splice(0, 1);
-        }
+        this.scheduleTrailingPointsRemoval();
     }
 
     protected internalEndStroke(p: IPointerPoint) {
-        window.clearInterval(this._trailingPointsRemovalInterval);
+        if (this._trailingPointsRemovalInterval !== undefined) {
+            window.clearInterval(this._trailingPointsRemovalInterval);
+
+            this._trailingPointsRemovalInterval = undefined;
+        }
 
         this.internalAddPoint(p);
     }

@@ -12,8 +12,8 @@ export class JitterFilter extends InputFilter {
         return JitterFilter._ab * input + JitterFilter._a * output1 + JitterFilter._b * output2;
     }
 
-    private _out1!: IPointerPoint;
-    private _out2!: IPointerPoint;
+    private _out1?: IPointerPoint;
+    private _out2?: IPointerPoint;
 
     reset(startPoint: IPointerPoint): void {
         this._out1 = startPoint;
@@ -21,15 +21,19 @@ export class JitterFilter extends InputFilter {
     }
 
     filterPoint(p: IPointerPoint): IPointerPoint {
-        const output: IPointerPoint = {
-            x: JitterFilter.iir(p.x, this._out1.x, this._out2.x),
-            y: JitterFilter.iir(p.y, this._out1.y, this._out2.y),
-            pressure: p.pressure
-        };
+        if (this._out1 && this._out2) {
+            const output: IPointerPoint = {
+                x: JitterFilter.iir(p.x, this._out1.x, this._out2.x),
+                y: JitterFilter.iir(p.y, this._out1.y, this._out2.y),
+                pressure: p.pressure
+            };
 
-        this._out2 = this._out1;
-        this._out1 = output;
+            this._out2 = this._out1;
+            this._out1 = output;
 
-        return output;
+            return output;
+        }
+
+        return p;
     }
 }
