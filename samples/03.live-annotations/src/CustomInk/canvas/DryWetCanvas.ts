@@ -1,15 +1,21 @@
 import { InkingCanvas } from "./InkingCanvas";
 import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IQuad, IPointerPoint, computeQuadBetweenTwoRectangles, IPoint } from "../core/Geometry";
-import { IBrush } from "./Brush";
+import { IBrush, IColor } from "./Brush";
+import { colorToCssColor } from "../core/Utils";
+
+interface IQuadPathItem {
+    quad?: IQuad,
+    endPoint: IPointerPoint
+}
 
 export abstract class DryWetCanvas extends InkingCanvas {
     private _pendingPointsStartIndex = 0;
     private _points: IPointerPoint[] = [];
 
-    protected internalRender() {
-        if (this._pendingPointsStartIndex < this._points.length) {
-            const tipHalfSize = this.brush.tipSize / 2;
+    private computeQuadPath(tipHalfSize: number): IQuadPathItem[] {
+        const result: IQuadPathItem[] = [];
 
+        if (this._pendingPointsStartIndex < this._points.length) {
             let previousPoint: IPointerPoint | undefined = undefined;
             let previousPointPressureAdjustedTip = 0;
             
@@ -30,52 +36,76 @@ export abstract class DryWetCanvas extends InkingCanvas {
 
                 let pressureAdjustedTip = getPressureAdjustedTipSize(tipHalfSize, p.pressure);
 
-                if (i === 0) {
-                    this.beginPath();
+                const pathItem: IQuadPathItem = {
+                    endPoint: p
+                };
+
+                if (previousPoint !== undefined) {
+                    pathItem.quad = this.brush.tip === "ellipse"
+                        ? computeQuadBetweenTwoCircles(
+                            p,
+                            pressureAdjustedTip,
+                            previousPoint,
+                            previousPointPressureAdjustedTip)
+                        : computeQuadBetweenTwoRectangles(
+                            p,
+                            pressureAdjustedTip,
+                            pressureAdjustedTip,
+                            previousPoint,
+                            previousPointPressureAdjustedTip,
+                            previousPointPressureAdjustedTip);
                 }
 
-                if (this.brush.tip === "ellipse") {
-                    if (previousPoint !== undefined && computeQuadBetweenTwoCircles(
-                        p,
-                        pressureAdjustedTip,
-                        previousPoint,
-                        previousPointPressureAdjustedTip,
-                        quad)) {
-                        this.renderQuad(quad);
-                    }
-
-                    this.renderCircle(p, getPressureAdjustedTipSize(tipHalfSize, p.pressure));
-                }
-                else {
-                    if (previousPoint !== undefined && computeQuadBetweenTwoRectangles(
-                        p,
-                        pressureAdjustedTip,
-                        pressureAdjustedTip,
-                        previousPoint,
-                        previousPointPressureAdjustedTip,
-                        previousPointPressureAdjustedTip,
-                        quad)) {
-                        this.renderQuad(quad);
-                    }
-
-                    this.renderRectangle(
-                        p,
-                        pressureAdjustedTip,
-                        pressureAdjustedTip);
-                }
+                result.push(pathItem);
 
                 previousPoint = p;
                 previousPointPressureAdjustedTip = pressureAdjustedTip;
             }
+        }
 
-            this.fill();
+        return result;
+    }
 
-            if (this.hasStrokeEnded) {
-                this.closePath();
+    private renderQuadPath(path: IQuadPathItem[], tipHalfSize: number, color: IColor) {
+        this.context.strokeStyle = colorToCssColor(color);
+
+        this.beginPath();
+
+        for (let item of path) {
+            const pressureAdjustedTip = getPressureAdjustedTipSize(tipHalfSize, item.endPoint.pressure);
+
+            if (item.quad !== undefined) {
+                this.renderQuad(item.quad);
             }
 
-            this._pendingPointsStartIndex = this._points.length;
+            if (this.brush.tip === "ellipse") {
+                this.renderCircle(item.endPoint, pressureAdjustedTip);
+            }
+            else {
+                this.renderRectangle(
+                    item.endPoint,
+                    pressureAdjustedTip,
+                    pressureAdjustedTip);
+            }
         }
+
+        this.fill();
+        this.closePath();
+    }
+
+    protected internalRender() {
+        const tipHalfSize = this.brush.tipSize / 2;
+        const path = this.computeQuadPath(tipHalfSize);
+
+        this.renderQuadPath(path, tipHalfSize, this.brush.color);
+
+        /*
+        if (this.brush.fillColor) {
+            this.renderQuadPath(path, tipHalfSize - 1, this.brush.fillColor);
+        }
+        */
+
+        this._pendingPointsStartIndex = this._points.length;
     }
 
     protected internalBeginStroke(p: IPointerPoint) {
@@ -87,8 +117,10 @@ export abstract class DryWetCanvas extends InkingCanvas {
         this._points.push(p);
     }
 
-    protected internalEndStroke(p: IPointerPoint) {
-        this._points.push(p);
+    protected internalEndStroke(p?: IPointerPoint) {
+        if (p) {
+            this._points.push(p);
+        }
     }
 }
 

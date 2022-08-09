@@ -50,13 +50,16 @@ export class LaserPointerCanvas extends InkingCanvas {
                 this.context.beginPath();
             }
 
-            if (previousPoint !== undefined && computeQuadBetweenTwoCircles(
-                p,
-                getPressureAdjustedTipSize(radius, p.pressure),
-                previousPoint,
-                getPressureAdjustedTipSize(radius - radiusStep, previousPoint.pressure),
-                quad)) {
-                this.renderQuad(quad);
+            if (previousPoint !== undefined) {
+                const quad = computeQuadBetweenTwoCircles(
+                    p,
+                    getPressureAdjustedTipSize(radius, p.pressure),
+                    previousPoint,
+                    getPressureAdjustedTipSize(radius - radiusStep, previousPoint.pressure));
+
+                if (quad) {
+                    this.renderQuad(quad);
+                }
             }
 
             this.renderCircle(p, getPressureAdjustedTipSize(radius, p.pressure));
@@ -94,13 +97,15 @@ export class LaserPointerCanvas extends InkingCanvas {
         this.scheduleTrailingPointsRemoval();
     }
 
-    protected internalEndStroke(p: IPointerPoint) {
+    protected internalEndStroke(p?: IPointerPoint) {
         if (this._trailingPointsRemovalInterval !== undefined) {
             window.clearInterval(this._trailingPointsRemovalInterval);
 
             this._trailingPointsRemovalInterval = undefined;
         }
 
-        this.internalAddPoint(p);
+        if (p) {
+            this.internalAddPoint(p);
+        }
     }
 }

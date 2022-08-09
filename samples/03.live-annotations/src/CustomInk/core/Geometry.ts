@@ -1,5 +1,4 @@
-import { generateUniqueId, isInRange } from "./Utils";
-import { DefaultStrokeBrush, IBrush } from "../canvas/Brush";
+import { isInRange } from "./Utils";
 
 export const TWO_PI: number = Math.PI * 2;
 
@@ -46,9 +45,8 @@ export function computeQuadBetweenTwoCircles(
     center1: IPoint,
     r1: number,
     center2: IPoint,
-    r2: number,
-    quad: IQuad
-): boolean {
+    r2: number
+): IQuad | undefined {
     // output point sequence: if viewing the two circles from below,
     // with the first circle on the left,
     // the first point should be the upper tangent point on the first circle
@@ -57,7 +55,7 @@ export function computeQuadBetweenTwoCircles(
     const distance: number = Math.sqrt(diffX * diffX + diffY * diffY);
 
     if (distance <= Math.abs(r2 - r1)) {
-        return false;
+        return undefined;
     }
 
     const cosTheta: number = diffX / distance;
@@ -69,16 +67,12 @@ export function computeQuadBetweenTwoCircles(
     const sinBeta: number = sinTheta * cosDelta - cosTheta * sinDelta;
     const cosBeta: number = cosTheta * cosDelta + sinTheta * sinDelta;
 
-    quad.p1.x = center1.x - sinAlpha * r1;
-    quad.p1.y = center1.y - cosAlpha * r1;
-    quad.p2.x = center2.x - sinAlpha * r2;
-    quad.p2.y = center2.y - cosAlpha * r2;
-    quad.p3.x = center2.x + sinBeta * r2;
-    quad.p3.y = center2.y + cosBeta * r2;
-    quad.p4.x = center1.x + sinBeta * r1;
-    quad.p4.y = center1.y + cosBeta * r1;
-
-    return true;
+    return {
+        p1: { x: center1.x - sinAlpha * r1, y: center1.y - cosAlpha * r1 },
+        p2: { x: center2.x - sinAlpha * r2, y: center2.y - cosAlpha * r2 },
+        p3: { x: center2.x + sinBeta * r2, y: center2.y + cosBeta * r2 },
+        p4: { x: center1.x + sinBeta * r1, y: center1.y + cosBeta * r1 }
+    }
 }
 
 export function computeQuadBetweenTwoRectangles(
@@ -87,9 +81,8 @@ export function computeQuadBetweenTwoRectangles(
     halfHeight1: number,
     center2: IPoint,
     halfWidth2: number,
-    halfHeight2: number,
-    quad: IQuad
-): boolean {
+    halfHeight2: number
+): IQuad | undefined {
     const left1: number = center1.x - halfWidth1;
     const top1: number = center1.y - halfHeight1;
     const right1: number = center1.x + halfWidth1;
@@ -103,25 +96,18 @@ export function computeQuadBetweenTwoRectangles(
         (left2 >= left1 && top2 >= top1 && right2 <= right1 && bottom2 <= bottom1) ||
         (left1 >= left2 && top1 >= top2 && right1 <= right2 && bottom1 <= bottom2)
     ) {
-        return false; // one rectangle contains the other or they are the same
+        return undefined; // one rectangle contains the other or they are the same
     }
 
     const signDeltaX: number = center2.x - center1.x > 0 ? 1 : -1;
     const signDeltaY: number = center2.y - center1.y > 0 ? 1 : -1;
 
-    quad.p1.x = center1.x - signDeltaY * halfWidth1;
-    quad.p1.y = center1.y + signDeltaX * halfHeight1;
-
-    quad.p2.x = center1.x + signDeltaY * halfWidth1;
-    quad.p2.y = center1.y - signDeltaX * halfHeight1;
-
-    quad.p3.x = center2.x + signDeltaY * halfWidth2;
-    quad.p3.y = center2.y - signDeltaX * halfHeight2;
-
-    quad.p4.x = center2.x - signDeltaY * halfWidth2;
-    quad.p4.y = center2.y + signDeltaX * halfHeight2;
-
-    return true;
+    return {
+        p1: { x: center1.x - signDeltaY * halfWidth1, y: center1.y + signDeltaX * halfHeight1 },
+        p2: { x: center1.x + signDeltaY * halfWidth1, y: center1.y - signDeltaX * halfHeight1 },
+        p3: { x: center2.x + signDeltaY * halfWidth2, y: center2.y - signDeltaX * halfHeight2 },
+        p4: { x: center2.x - signDeltaY * halfWidth2, y: center2.y + signDeltaX * halfHeight2 }
+    }
 }
 
 export function makeRectangleFromPoint(p: IPoint, width: number, height: number): IRect {

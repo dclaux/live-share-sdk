@@ -2,9 +2,10 @@ import { DataObject, DataObjectFactory } from '@fluidframework/aqueduct';
 import { IFluidHandle } from '@fluidframework/core-interfaces';
 import { IValueChanged, SharedMap } from '@fluidframework/map';
 import { ISequencedDocumentMessage } from '@fluidframework/protocol-definitions';
-import { AddPointEvent, BeginStrokeEvent, ClearEvent, EndStrokeEvent, IAddPointsEventArgs, IBeginStrokeEventArgs, IEndStrokeEventArgs, InkingManager, InkingTool, IWetStroke, StrokeBasedTool, StrokesAddedEvent, StrokesRemovedEvent } from './core/InkingManager';
+import { AddPointEvent, BeginStrokeEvent, ClearEvent, IAddPointsEventArgs, IBeginStrokeEventArgs,
+    InkingManager, IWetStroke, StrokesAddedEvent, StrokesRemovedEvent } from './core/InkingManager';
 import { IPointerPoint, getDistanceBetweenPoints } from './core/Geometry';
-import { IStroke, Stroke, IStrokeData } from "./core/Stroke";
+import { IStroke, Stroke, StrokeType } from "./core/Stroke";
 import { EphemeralEventScope, EphemeralEventTarget, IEphemeralEvent, UserMeetingRole } from '@microsoft/live-share';
 import { IBrush } from './canvas/Brush';
 
@@ -27,14 +28,13 @@ export var telemetryWithOptimization: ITelemetry = {
 enum StrokeEventNames {
     BeginWetStroke = "BeginWetStroke",
     AddWetStrokePoints = "AddWetStrokePoint",
-    EndWetStroke = "EndWetStroke"
+    // EndWetStroke = "EndWetStroke"
 }
 
 type IBeginWetStrokeEvent = IEphemeralEvent & IBeginStrokeEventArgs;
 type IAddWetStrokePointsEvent = IEphemeralEvent & IAddPointsEventArgs;
-type IEndWetStrokeEvent = IEphemeralEvent & IEndStrokeEventArgs;
 
-class LiveStroke implements IStrokeData {
+class LiveStroke {
     private _points: IPointerPoint[] = [];
     private _processTimeout?: number;
 
@@ -42,7 +42,7 @@ class LiveStroke implements IStrokeData {
         // TODO: Remove this
         telemetryWithoutOptimization.totalPoints += this._points.length;
 
-        if (this.tool === InkingTool.LaserPointer) {
+        if (this.type !== StrokeType.Persistent) {
             return;
         }
 
@@ -67,9 +67,11 @@ class LiveStroke implements IStrokeData {
         telemetryWithOptimization.totalPoints += this._points.length;
     }
 
+    hasEnded: boolean = false;
+
     constructor(
-        readonly tool: StrokeBasedTool,
         readonly id: string,
+        readonly type: StrokeType,
         readonly brush: IBrush) { }
 
     get points(): IPointerPoint[] {
@@ -113,7 +115,6 @@ export class SharedInkingSession extends DataObject {
     private _wetStrokes: Map<string, IWetStroke> = new Map<string, IWetStroke>();
     private _beginWetStrokeEventTarget!: EphemeralEventTarget<IBeginWetStrokeEvent>;
     private _addWetStrokePointEventTarget!: EphemeralEventTarget<IAddWetStrokePointsEvent>;
-    private _endWetStrokeEventTarget!: EphemeralEventTarget<IEndWetStrokeEvent>;
     private _allowedRoles: UserMeetingRole[] = [ UserMeetingRole.guest, UserMeetingRole.attendee, UserMeetingRole.organizer, UserMeetingRole.presenter ];
     
     protected async initializingFirstTime(): Promise<void> {
@@ -141,7 +142,8 @@ export class SharedInkingSession extends DataObject {
             {
                 name: StrokeEventNames.AddWetStrokePoints,
                 strokeId: liveStroke.id,
-                points: liveStroke.points
+                points: liveStroke.points,
+                hasEnded: liveStroke.hasEnded
             });
 
         liveStroke.clear();
@@ -154,8 +156,8 @@ export class SharedInkingSession extends DataObject {
                 BeginStrokeEvent,
                 (eventArgs: IBeginStrokeEventArgs) => {
                     const liveStroke = new LiveStroke(
-                        eventArgs.tool,
                         eventArgs.strokeId,
+                        eventArgs.type,
                         eventArgs.brush
                     );
 
@@ -179,28 +181,20 @@ export class SharedInkingSession extends DataObject {
                     const liveStroke = this._pendingLiveStrokes.get(eventArgs.strokeId);
 
                     if (liveStroke !== undefined) {
-                        liveStroke.points.push(...eventArgs.points);
+                        if (!eventArgs.hasEnded) {
+                            liveStroke.points.push(...eventArgs.points);
+                        }
+                        liveStroke.hasEnded = eventArgs.hasEnded;
+
+                        if (eventArgs.hasEnded) {
+                            this._pendingLiveStrokes.delete(eventArgs.strokeId);
+                        }
 
                         liveStroke.scheduleProcessing(this.liveStrokeProcessed);
                     }
 
                     // TODO: Remove this
                     telemetryWithoutOptimization.totalEvents += eventArgs.points.length;
-                });
-            this._inkingManager.on(
-                EndStrokeEvent,
-                (eventArgs: IAddPointsEventArgs) => {
-                    this._pendingLiveStrokes.delete(eventArgs.strokeId);
-
-                    // TODO: Remove this
-                    telemetryWithoutOptimization.totalEvents++;
-                    telemetryWithOptimization.totalEvents++;
-
-                    this._endWetStrokeEventTarget.sendEvent(
-                        {
-                            name: StrokeEventNames.EndWetStroke,
-                            ...eventArgs
-                        });
                 });
         }
 
@@ -213,7 +207,7 @@ export class SharedInkingSession extends DataObject {
             (evt: IBeginWetStrokeEvent, local: boolean) => {
                 if (!local && this._inkingManager) {
                     const stroke = this._inkingManager.beginWetStroke(
-                        evt.tool,
+                        evt.type,
                         evt.startPoint,
                         {
                             id: evt.strokeId,
@@ -233,21 +227,10 @@ export class SharedInkingSession extends DataObject {
         
                     if (stroke) {
                         stroke.addPoints(...evt.points);
-                    }
-                }        
-            });
 
-        this._endWetStrokeEventTarget = new EphemeralEventTarget(
-            scope,
-            StrokeEventNames.EndWetStroke,
-            (evt: IEndWetStrokeEvent, local: boolean) => {
-                if (!local) {
-                    const stroke = this._wetStrokes.get(evt.strokeId);
-        
-                    if (stroke) {
-                        stroke.end(evt.endPoint);
-        
-                        this._wetStrokes.delete(evt.strokeId);
+                        if (evt.hasEnded) {
+                            stroke.end();
+                        }
                     }
                 }        
             });

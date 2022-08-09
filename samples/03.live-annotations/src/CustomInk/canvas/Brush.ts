@@ -18,12 +18,13 @@ export type BrushBlendMode = "normal" | "darken";
 
 export interface IBrush {
     readonly color: IColor;
+    readonly fillColor?: IColor;
     readonly tip: BrushTipShape;
     readonly tipSize: number;
     readonly blendMode: BrushBlendMode;
 }
 
-export const DefaultStrokeBrush: IBrush = {
+export const DefaultPenBrush: IBrush = {
     color: Colors.Black,
     tip: "ellipse",
     tipSize: 10,
@@ -39,6 +40,7 @@ export const DefaultHighlighterBrush: IBrush = {
 
 export const DefaultLaserPointerBrush: IBrush = {
     color: Colors.Red,
+    fillColor: Colors.Blue,
     tip: "ellipse",
     tipSize: 10,
     blendMode: "normal"
@@ -51,7 +53,7 @@ export class Brush implements IBrush {
     blendMode: BrushBlendMode;
 
     constructor(template?: IBrush) {
-        const effectiveTemplate = template ?? DefaultStrokeBrush;
+        const effectiveTemplate = template ?? DefaultPenBrush;
 
         this.color = effectiveTemplate.color;
         this.tip = effectiveTemplate.tip;

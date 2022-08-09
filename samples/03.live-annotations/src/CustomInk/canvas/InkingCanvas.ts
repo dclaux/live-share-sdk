@@ -1,12 +1,13 @@
 import { TWO_PI, IPointerPoint, IQuad, IPoint, viewportToScreen } from "../core/Geometry";
 import { IStroke } from "../core/Stroke";
 import { colorToCssColor } from "../core/Utils";
-import { DefaultStrokeBrush, IBrush } from "./Brush";
+import { DefaultPenBrush, IBrush } from "./Brush";
 
 export type CanvasReferencePoint = "topLeft" | "center";
 
 export abstract class InkingCanvas {
-    public static asyncRenderInterval = 30;
+    public static asyncRenderInterval = 10;
+    public static fadeOutLength = 300;
 
     private _context: CanvasRenderingContext2D;
     private _strokeStarted: boolean = false;
@@ -58,7 +59,7 @@ export abstract class InkingCanvas {
     protected abstract internalRender(): void;
     protected abstract internalBeginStroke(p: IPointerPoint): void;
     protected abstract internalAddPoint(p: IPointerPoint): void;
-    protected abstract internalEndStroke(p: IPointerPoint): void;
+    protected abstract internalEndStroke(p?: IPointerPoint): void;
 
     protected rendersAsynchronously(): boolean {
         return true;
@@ -93,8 +94,25 @@ export abstract class InkingCanvas {
 
             this.resize(parentElement.clientWidth, parentElement.clientHeight);
         }
+    }
 
-        this.setBrush(DefaultStrokeBrush);
+    fadeOut() {
+        let opacity = 0.9;
+
+        const doFadeOut = () => {
+            if (opacity > 0) {
+                this.canvas.style.opacity = opacity.toString();
+
+                window.setTimeout(doFadeOut, InkingCanvas.fadeOutLength / 10);
+
+                opacity -= 0.1;
+            }
+            else {
+                this.removeFromDOM();
+            }
+        }
+
+        window.setTimeout(doFadeOut, InkingCanvas.fadeOutLength / 10);
     }
 
     removeFromDOM() {
@@ -149,12 +167,16 @@ export abstract class InkingCanvas {
         this.internalAddPoint(p);
     }
 
-    endStroke(p: IPointerPoint) {
+    endStroke(p?: IPointerPoint) {
         this._strokeStarted = false;
 
         this.internalEndStroke(p);
 
         this.internalRender();
+    }
+
+    cancelStroke() {
+        this._strokeStarted = false;
     }
 
     renderStroke(stroke: IStroke) {

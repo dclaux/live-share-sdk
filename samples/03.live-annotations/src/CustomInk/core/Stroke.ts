@@ -1,13 +1,19 @@
-import { IBrush, DefaultStrokeBrush } from "../canvas/Brush";
+import { IBrush, DefaultPenBrush } from "../canvas/Brush";
 import { doRectanglesOverlap, getDistanceBetweenPoints, getSegmentIntersectionsWithRectangle, getSegmentsIntersection,
     IPoint, IPointerPoint, IRect, ISegment, isPointInsideRectangle, isRectangleInsideRectangle,
     segmentMayIntersectWithRectangle, unionRect } from "./Geometry";
 import { generateUniqueId } from "./Utils";
 
-export interface IStrokeData {
+interface IStrokeData {
     id: string;
     brush: IBrush;
     points: IPointerPoint[];
+}
+
+export enum StrokeType {
+    LaserPointer,
+    Ephemeral,
+    Persistent
 }
 
 export interface IStroke {
@@ -19,7 +25,7 @@ export interface IStroke {
     pointErase(eraserRect: IRect): IStroke[] | undefined;
     serialize(): string;
     deserialize(serializedStroke: string): void;
-    brush: IBrush;
+    readonly brush: IBrush;
     readonly id: string;
     readonly length: number;
 }
@@ -27,11 +33,11 @@ export interface IStroke {
 export interface IStrokeCreationOptions {
     id?: string;
     brush?: IBrush;
-    points?: IPointerPoint[]
+    points?: IPointerPoint[];
 }
 
 export class Stroke implements IStroke, Iterable<IPointerPoint> {
-    private _brush: IBrush = {...DefaultStrokeBrush};
+    private _brush: IBrush = {...DefaultPenBrush};
     private _points: IPointerPoint[];
     private _iteratorCounter = 0;
     private _id: string;
@@ -67,7 +73,7 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
         this._id = effectiveOptions.id ?? generateUniqueId();
         this._points = effectiveOptions.points ?? [];
 
-        this.brush = {...(effectiveOptions.brush ?? DefaultStrokeBrush)};
+        this.brush = {...(effectiveOptions.brush ?? DefaultPenBrush)};
     }
 
     addPoints(...points: IPointerPoint[]): boolean {
@@ -270,6 +276,6 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
     }
 
     set brush(value: IBrush) {
-        this._brush = {...value};
+        this._brush = { ...value };
     }
 }

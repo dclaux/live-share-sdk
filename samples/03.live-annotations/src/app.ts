@@ -60,7 +60,7 @@ window.onload = () => {
         }
     }
 
-    setupButton("btnStroke", () => { inkingManager.tool = InkingTool.Stroke });
+    setupButton("btnStroke", () => { inkingManager.tool = InkingTool.Pen });
     setupButton("btnLaserPointer", () => { inkingManager.tool = InkingTool.LaserPointer });
     setupButton("btnHighlighter", () => { inkingManager.tool = InkingTool.Highlighter });
     setupButton("btnEraser", () => { inkingManager.tool = InkingTool.Eraser });
