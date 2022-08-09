@@ -1,7 +1,7 @@
 import { TWO_PI, IPointerPoint, IQuad, IPoint, viewportToScreen } from "../core/Geometry";
 import { IStroke } from "../core/Stroke";
 import { colorToCssColor } from "../core/Utils";
-import { DefaultPenBrush, IBrush } from "./Brush";
+import { IBrush } from "./Brush";
 
 export type CanvasReferencePoint = "topLeft" | "center";
 
@@ -56,6 +56,7 @@ export abstract class InkingCanvas {
         };
     }
 
+    protected abstract getDefaultBrush(): IBrush;
     protected abstract internalRender(): void;
     protected abstract internalBeginStroke(p: IPointerPoint): void;
     protected abstract internalAddPoint(p: IPointerPoint): void;
@@ -261,9 +262,6 @@ export abstract class InkingCanvas {
 
     setBrush(value: IBrush) {
         this._brush = value;
-
-        this._context.strokeStyle = colorToCssColor(this._brush.color);
-        this._context.fillStyle = colorToCssColor(this._brush.color);
     }
 
     get canvas(): HTMLCanvasElement {
@@ -275,7 +273,7 @@ export abstract class InkingCanvas {
     }
 
     get brush(): IBrush {
-        return this._brush;
+        return this._brush ?? this.getDefaultBrush();
     }
 
     get offset(): Readonly<IPoint> {

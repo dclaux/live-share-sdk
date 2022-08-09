@@ -1,3 +1,5 @@
+import { brightenColor } from "../core/Utils";
+
 export interface IColor {
     readonly r: number; // 0 - 255
     readonly g: number; // 0 - 255
@@ -17,14 +19,14 @@ export type BrushTipShape = "ellipse" | "rectangle";
 export type BrushBlendMode = "normal" | "darken";
 
 export interface IBrush {
-    readonly color: IColor;
-    readonly fillColor?: IColor;
-    readonly tip: BrushTipShape;
-    readonly tipSize: number;
-    readonly blendMode: BrushBlendMode;
+    color: IColor;
+    fillColor?: IColor;
+    tip: BrushTipShape;
+    tipSize: number;
+    blendMode: BrushBlendMode;
 }
 
-export const DefaultPenBrush: IBrush = {
+export const DefaultPenBrush: Readonly<IBrush> = {
     color: Colors.Black,
     tip: "ellipse",
     tipSize: 10,
@@ -40,24 +42,8 @@ export const DefaultHighlighterBrush: IBrush = {
 
 export const DefaultLaserPointerBrush: IBrush = {
     color: Colors.Red,
-    fillColor: Colors.Blue,
+    fillColor: brightenColor(Colors.Red, 50),
     tip: "ellipse",
     tipSize: 10,
     blendMode: "normal"
 };
-
-export class Brush implements IBrush {
-    color: IColor;
-    tip: BrushTipShape;
-    tipSize: number;
-    blendMode: BrushBlendMode;
-
-    constructor(template?: IBrush) {
-        const effectiveTemplate = template ?? DefaultPenBrush;
-
-        this.color = effectiveTemplate.color;
-        this.tip = effectiveTemplate.tip;
-        this.tipSize = effectiveTemplate.tipSize;
-        this.blendMode = effectiveTemplate.blendMode;
-    }
-}

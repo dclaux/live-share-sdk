@@ -1,6 +1,6 @@
 import { InkingCanvas } from "./InkingCanvas";
 import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IQuad, IPointerPoint, computeQuadBetweenTwoRectangles, IPoint } from "../core/Geometry";
-import { IBrush, IColor } from "./Brush";
+import { DefaultPenBrush, IBrush, IColor } from "./Brush";
 import { colorToCssColor } from "../core/Utils";
 
 interface IQuadPathItem {
@@ -12,8 +12,9 @@ export abstract class DryWetCanvas extends InkingCanvas {
     private _pendingPointsStartIndex = 0;
     private _points: IPointerPoint[] = [];
 
-    private computeQuadPath(tipHalfSize: number): IQuadPathItem[] {
+    private computeQuadPath(tipSize: number): IQuadPathItem[] {
         const result: IQuadPathItem[] = [];
+        const tipHalfSize = tipSize / 2;
 
         if (this._pendingPointsStartIndex < this._points.length) {
             let previousPoint: IPointerPoint | undefined = undefined;
@@ -66,8 +67,11 @@ export abstract class DryWetCanvas extends InkingCanvas {
         return result;
     }
 
-    private renderQuadPath(path: IQuadPathItem[], tipHalfSize: number, color: IColor) {
+    private renderQuadPath(path: IQuadPathItem[], tipSize: number, color: IColor) {
         this.context.strokeStyle = colorToCssColor(color);
+        this.context.fillStyle = colorToCssColor(color);
+
+        const tipHalfSize = tipSize / 2;
 
         this.beginPath();
 
@@ -93,19 +97,33 @@ export abstract class DryWetCanvas extends InkingCanvas {
         this.closePath();
     }
 
+    protected getDefaultBrush(): IBrush {
+        return DefaultPenBrush;
+    }
+
+    protected rendersProgressively(): boolean {
+        return true;
+    }
+
     protected internalRender() {
-        const tipHalfSize = this.brush.tipSize / 2;
-        const path = this.computeQuadPath(tipHalfSize);
-
-        this.renderQuadPath(path, tipHalfSize, this.brush.color);
-
-        /*
-        if (this.brush.fillColor) {
-            this.renderQuadPath(path, tipHalfSize - 1, this.brush.fillColor);
+        if (!this.rendersProgressively()) {
+            this.clear();
         }
-        */
 
-        this._pendingPointsStartIndex = this._points.length;
+        const path = this.computeQuadPath(this.brush.tipSize);
+
+        this.renderQuadPath(path, this.brush.tipSize, this.brush.color);
+
+        if (this.brush.fillColor) {
+            const reducedTipSize = this.brush.tipSize - this.brush.tipSize / 2;
+
+            const path = this.computeQuadPath(reducedTipSize);
+            this.renderQuadPath(path, reducedTipSize , this.brush.fillColor);
+        }
+
+        if (this.rendersProgressively()) {
+            this._pendingPointsStartIndex = this._points.length;
+        }
     }
 
     protected internalBeginStroke(p: IPointerPoint) {
@@ -135,10 +153,14 @@ export class DryCanvas extends DryWetCanvas {
 
         // On a dry canvas, blendMode is applied on the context so whatever is drawn combines with what's already drawn
         this.context.globalCompositeOperation = this.brush.blendMode === "normal" ? "source-over" : "darken";
-    }    
+    } 
 }
 
 export class WetCanvas extends DryWetCanvas {
+    protected rendersProgressively(): boolean {
+        return this.brush.fillColor === undefined;
+    }
+
     setBrush(value: IBrush) {
         super.setBrush(value);
 
@@ -147,5 +169,5 @@ export class WetCanvas extends DryWetCanvas {
         // The end result is that when a stroke is "dried", i.e. moved from the wet canvas to the dry canvas, darkened
         // portions will look darker than when being drawn on the wet canvas.
         this.canvas.style.mixBlendMode = this.brush.blendMode === "normal" ? "normal" : "darken";
-    }    
+    } 
 }

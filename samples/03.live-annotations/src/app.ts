@@ -6,7 +6,7 @@
 import { TeamsFluidClient, UserMeetingRole } from "@microsoft/live-share";
 import { LOCAL_MODE_TENANT_ID } from "@fluidframework/azure-client";
 import { InsecureTokenProvider } from "@fluidframework/test-client-utils";
-import { SharedInkingSession, telemetryWithOptimization, telemetryWithoutOptimization } from "./CustomInk/SharedInkingSession";
+import { SharedInkingSession } from "./CustomInk/SharedInkingSession";
 import { InkingManager, InkingTool } from "./CustomInk/core/InkingManager";
 
 const containerSchema = {
@@ -84,19 +84,6 @@ window.onload = () => {
         }
     });
     setupButton("btnZoomIn", () => { inkingManager.scale += 0.1; });
-
-    window.setInterval(
-        () => {
-            const telemetryDiv = document.getElementById("telemetry");
-
-            if (telemetryDiv) {
-                const eventsImprovement = (100 - (100 / telemetryWithoutOptimization.totalEvents * telemetryWithOptimization.totalEvents)).toFixed(2) + "% improvement";
-                const pointsImprovement = (100 - (100 / telemetryWithoutOptimization.totalPoints * telemetryWithOptimization.totalPoints)).toFixed(2) + "% improvement";
-
-                telemetryDiv.innerText = `Events: ${telemetryWithOptimization.totalEvents} / ${telemetryWithoutOptimization.totalEvents} (${eventsImprovement}) - Points: ${telemetryWithOptimization.totalPoints} / ${telemetryWithoutOptimization.totalPoints} (${pointsImprovement})`;
-            }
-        },
-        500);
 }
 
 start().catch((error) => console.error(error));

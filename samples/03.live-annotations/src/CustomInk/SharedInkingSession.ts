@@ -9,26 +9,9 @@ import { IStroke, Stroke, StrokeType } from "./core/Stroke";
 import { EphemeralEventScope, EphemeralEventTarget, IEphemeralEvent, UserMeetingRole } from '@microsoft/live-share';
 import { IBrush } from './canvas/Brush';
 
-/* TODO: Remove this basic telemetry stuff */
-export interface ITelemetry {
-    totalEvents: number;
-    totalPoints: number;
-}
-
-export var telemetryWithoutOptimization: ITelemetry = {
-    totalEvents: 0,
-    totalPoints: 0
-}
-
-export var telemetryWithOptimization: ITelemetry = {
-    totalEvents: 0,
-    totalPoints: 0
-}
-
 enum StrokeEventNames {
     BeginWetStroke = "BeginWetStroke",
     AddWetStrokePoints = "AddWetStrokePoint",
-    // EndWetStroke = "EndWetStroke"
 }
 
 type IBeginWetStrokeEvent = IEphemeralEvent & IBeginStrokeEventArgs;
@@ -39,9 +22,6 @@ class LiveStroke {
     private _processTimeout?: number;
 
     private process() {
-        // TODO: Remove this
-        telemetryWithoutOptimization.totalPoints += this._points.length;
-
         if (this.type !== StrokeType.Persistent) {
             return;
         }
@@ -62,9 +42,6 @@ class LiveStroke {
                 index++; 
             }
         }
-
-        // TODO: Remove this
-        telemetryWithOptimization.totalPoints += this._points.length;
     }
 
     hasEnded: boolean = false;
@@ -136,8 +113,6 @@ export class SharedInkingSession extends DataObject {
     private _pendingLiveStrokes: Map<string, LiveStroke> = new Map<string, LiveStroke>();
 
     private liveStrokeProcessed = (liveStroke: LiveStroke) => {
-        telemetryWithOptimization.totalEvents++;
-
         this._addWetStrokePointEventTarget.sendEvent(
             {
                 name: StrokeEventNames.AddWetStrokePoints,
@@ -165,10 +140,6 @@ export class SharedInkingSession extends DataObject {
 
                     this._pendingLiveStrokes.set(liveStroke.id, liveStroke);
 
-                    // TODO: Remove this
-                    telemetryWithoutOptimization.totalEvents++;
-                    telemetryWithOptimization.totalEvents++;
-
                     this._beginWetStrokeEventTarget.sendEvent(
                         {
                             name: StrokeEventNames.BeginWetStroke,
@@ -192,9 +163,6 @@ export class SharedInkingSession extends DataObject {
 
                         liveStroke.scheduleProcessing(this.liveStrokeProcessed);
                     }
-
-                    // TODO: Remove this
-                    telemetryWithoutOptimization.totalEvents += eventArgs.points.length;
                 });
         }
 
@@ -211,6 +179,7 @@ export class SharedInkingSession extends DataObject {
                         evt.startPoint,
                         {
                             id: evt.strokeId,
+                            clientId: evt.clientId,
                             brush: evt.brush
                         });
         

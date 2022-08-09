@@ -6,6 +6,7 @@ import { generateUniqueId } from "./Utils";
 
 interface IStrokeData {
     id: string;
+    clientId?: string;
     brush: IBrush;
     points: IPointerPoint[];
 }
@@ -25,13 +26,15 @@ export interface IStroke {
     pointErase(eraserRect: IRect): IStroke[] | undefined;
     serialize(): string;
     deserialize(serializedStroke: string): void;
-    readonly brush: IBrush;
     readonly id: string;
+    readonly clientId?: string;
+    readonly brush: IBrush;
     readonly length: number;
 }
 
 export interface IStrokeCreationOptions {
     id?: string;
+    clientId?: string;
     brush?: IBrush;
     points?: IPointerPoint[];
 }
@@ -41,6 +44,7 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
     private _points: IPointerPoint[];
     private _iteratorCounter = 0;
     private _id: string;
+    private _clientId?: string;
     private _boundingRect?: IRect;
 
     private addPoint(p: IPointerPoint): boolean {
@@ -66,11 +70,13 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
     constructor(options?: IStrokeCreationOptions) {
         const effectiveOptions: IStrokeCreationOptions = {
             id: options ? options.id : undefined,
+            clientId: options ? options.clientId : undefined,
             brush: options ? options.brush : undefined,
             points: options ? options.points : undefined
         }
 
         this._id = effectiveOptions.id ?? generateUniqueId();
+        this._clientId = effectiveOptions.clientId;
         this._points = effectiveOptions.points ?? [];
 
         this.brush = {...(effectiveOptions.brush ?? DefaultPenBrush)};
@@ -235,6 +241,7 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
     serialize(): string {
         const data: IStrokeData = {
             id: this.id,
+            clientId: this.clientId,
             brush: this.brush,
             points: this._points
         };
@@ -246,6 +253,7 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
         const data: IStrokeData = JSON.parse(serializedStroke) as IStrokeData;
 
         this._id = data.id;
+        this._clientId = data.clientId;
         this._brush = data.brush;
         this._points = data.points;
     }
@@ -265,6 +273,10 @@ export class Stroke implements IStroke, Iterable<IPointerPoint> {
 
     get id(): string {
         return this._id;
+    }
+
+    get clientId(): string | undefined {
+        return this._clientId;
     }
 
     get length(): number {

@@ -1,6 +1,6 @@
 import { InkingCanvas } from "./InkingCanvas";
 import { getPressureAdjustedTipSize, computeQuadBetweenTwoCircles, IPointerPoint, IQuad } from "../core/Geometry";
-import { IBrush } from "./Brush";
+import { DefaultLaserPointerBrush, IBrush } from "./Brush";
 import { brightenColor, colorToCssColor } from "../core/Utils";
 
 export class LaserPointerCanvas extends InkingCanvas {
@@ -71,6 +71,10 @@ export class LaserPointerCanvas extends InkingCanvas {
 
         this.context.closePath();
         this.context.fill();
+    }
+
+    protected getDefaultBrush(): IBrush {
+        return DefaultLaserPointerBrush;
     }
 
     protected internalRender() {

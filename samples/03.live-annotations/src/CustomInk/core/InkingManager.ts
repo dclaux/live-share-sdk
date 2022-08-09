@@ -6,10 +6,10 @@ import { IPoint, IPointerPoint, makeRectangleFromPoint, screenToViewport, viewpo
 import { Stroke, IStroke, IStrokeCreationOptions, StrokeType } from "./Stroke";
 import { InputFilter, InputFilterCollection } from "../input/InputFilter";
 import { JitterFilter } from "../input/JitterFilter";
-import { getCoalescedEvents, pointerEventToPoint } from "./Utils";
+import { generateUniqueId, getCoalescedEvents, pointerEventToPoint } from "./Utils";
 import { InputProvider } from "../input/InputProvider";
 import { PointerInputProvider } from "../input/PointerInputProvider";
-import { Brush, DefaultHighlighterBrush, DefaultLaserPointerBrush, DefaultPenBrush, IBrush } from "../canvas/Brush";
+import { DefaultHighlighterBrush, DefaultLaserPointerBrush, DefaultPenBrush, IBrush } from "../canvas/Brush";
 
 export enum InkingTool {
     Pen,
@@ -91,7 +91,33 @@ class ChangeLog {
     }
 }
 
+class EphemeralCanvas extends DryCanvas {
+    private _removalTimeout?: number;
+
+    constructor(readonly clientId: string, parentElement?: HTMLElement) {
+        super(parentElement)
+    }
+
+    scheduleRemoval(onRemoveCallback: (canvas: EphemeralCanvas) => void) {
+        if (this._removalTimeout) {
+            window.clearTimeout(this._removalTimeout);
+        }
+
+        this._removalTimeout = window.setTimeout(
+            () => {
+                this.fadeOut();
+
+                onRemoveCallback(this);
+            },
+            InkingManager.ephemeralCanvasRemovalDelay
+        )
+
+    }
+}
+
 export class InkingManager extends EventEmitter {
+    public static readonly localClientId = generateUniqueId();
+
     public static asyncRenderDelay = 30;
     public static pointEraserProcessingInterval = 60;
     public static ephemeralCanvasRemovalDelay = 1500;
@@ -158,6 +184,9 @@ export class InkingManager extends EventEmitter {
     private readonly _dryCanvas: InkingCanvas;
     private readonly _inputFilters: InputFilterCollection;
 
+    private _penBrush: IBrush = { ...DefaultPenBrush };
+    private _highlighterBrush: IBrush = { ...DefaultHighlighterBrush };
+    private _laserPointerBrush: IBrush = { ...DefaultLaserPointerBrush }
     private _tool: InkingTool = InkingTool.Pen;
     private _activePointerId?: number;
     private _inputProvider!: InputProvider;
@@ -175,8 +204,7 @@ export class InkingManager extends EventEmitter {
     private _scale: number = 1;
     private _viewportWidth?: number;
     private _viewportHeight?: number;
-    private _ephemeralCanvas?: DryCanvas;
-    private _ephemeralCanvasRemovalTimeout?: number;
+    private _ephemeralCanvases: Map<string, EphemeralCanvas> = new Map<string, EphemeralCanvas>();
 
     private onHostResized = (entries: ResizeObserverEntry[], observer: ResizeObserver) => {
         this._viewportWidth = undefined;
@@ -224,8 +252,8 @@ export class InkingManager extends EventEmitter {
 
     private flushChangeLog() {
         if (this._changeLog.hasChanges) {
-            this.internalStrokesRemoved(...this._changeLog.getRemovedStrokes());
-            this.internalStrokesAdded(...this._changeLog.getAddedStrokes());
+            this.notifyStrokesRemoved(...this._changeLog.getRemovedStrokes());
+            this.notifyStrokesAdded(...this._changeLog.getAddedStrokes());
 
             this._changeLog.clear();
         }
@@ -464,26 +492,23 @@ export class InkingManager extends EventEmitter {
 
     private wetStrokeEnded(stroke: IWetStroke) {
         if (stroke.type === StrokeType.Ephemeral) {
-            if (!this._ephemeralCanvas) {
-                this._ephemeralCanvas = new DryCanvas(this._canvasPoolHost);
+            const effectiveClientId = stroke.clientId ?? InkingManager.localClientId;
+
+            let ephemeralCanvas = this._ephemeralCanvases.get(effectiveClientId);
+
+            if (!ephemeralCanvas) {
+                ephemeralCanvas = new EphemeralCanvas(effectiveClientId, this._canvasPoolHost);
+
+                this._ephemeralCanvases.set(effectiveClientId, ephemeralCanvas);
             }
 
-            this._ephemeralCanvas.renderStroke(stroke);
+            ephemeralCanvas.renderStroke(stroke);
 
-            if (this._ephemeralCanvasRemovalTimeout) {
-                window.clearTimeout(this._ephemeralCanvasRemovalTimeout);
-            }
-
-            this._ephemeralCanvasRemovalTimeout = window.setTimeout(
-                () => {
-                    if (this._ephemeralCanvas) {
-                        this._ephemeralCanvas.fadeOut();
-                    }
-
-                    this._ephemeralCanvas = undefined;
-                },
-                InkingManager.ephemeralCanvasRemovalDelay
-            )
+            ephemeralCanvas.scheduleRemoval(
+                (sender: EphemeralCanvas) => {
+                    this._ephemeralCanvases.delete(sender.clientId);
+                }
+            );
         }
         if (stroke.type === StrokeType.Persistent) {
             this.internalAddStroke(stroke);
@@ -553,13 +578,13 @@ export class InkingManager extends EventEmitter {
         return result;
     }
 
-    protected internalStrokesAdded(...strokes: IStroke[]) {
+    protected notifyStrokesAdded(...strokes: IStroke[]) {
         if (strokes.length > 0) {
             this.emit(StrokesAddedEvent, strokes);
         }
     }
 
-    protected internalStrokesRemoved(...strokeIds: string[]) {
+    protected notifyStrokesRemoved(...strokeIds: string[]) {
         if (strokeIds.length > 0) {
             this.emit(StrokesRemovedEvent, strokeIds);
         }
@@ -599,10 +624,6 @@ export class InkingManager extends EventEmitter {
 
         this.emit(AddPointEvent, eventArgs);
     }
-
-    public readonly strokeBrush: Brush = new Brush(DefaultPenBrush);
-    public readonly highlighterBrush: Brush = new Brush(DefaultHighlighterBrush);
-    public readonly laserPointerBrush: Brush = new Brush(DefaultLaserPointerBrush);
 
     public eraserSize: number = 20;
 
@@ -668,10 +689,6 @@ export class InkingManager extends EventEmitter {
     }
 
     public beginWetStroke(strokeType: StrokeType, startPoint: IPointerPoint, options?: IStrokeCreationOptions): IWetStroke {
-        if (strokeType === StrokeType.Ephemeral && this._ephemeralCanvasRemovalTimeout) {
-            window.clearTimeout(this._ephemeralCanvasRemovalTimeout);
-        }
-
         const canvas = strokeType === StrokeType.LaserPointer ? new LaserPointerCanvas(this._canvasPoolHost) : new WetCanvas(this._canvasPoolHost);
         canvas.resize(this.viewportWidth, this.viewportHeight);
         canvas.offset = this.offset;
@@ -746,6 +763,30 @@ export class InkingManager extends EventEmitter {
                 : { x: 0, y: 0 },
             this.offset,
             this.scale);
+    }
+
+    get strokeBrush(): IBrush {
+        return this._penBrush;
+    }
+
+    set strokeBrush(value: IBrush) {
+        this._penBrush = { ...value };
+    }
+
+    get highlighterBrush(): IBrush {
+        return this._highlighterBrush;
+    }
+
+    set highlighterBrush(value: IBrush) {
+        this._highlighterBrush = { ...value };
+    }
+
+    get laserPointerBrush(): IBrush {
+        return this._laserPointerBrush;
+    }
+
+    set laserPointerBrush(value: IBrush) {
+        this._laserPointerBrush = { ...value };
     }
 
     get viewportWidth(): number {
